@@ -1,5 +1,0 @@
-robin_stocks
-schedule
-flask
-yfinance
-alpaca-py

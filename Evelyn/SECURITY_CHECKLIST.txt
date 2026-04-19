@@ -1,9 +1,0 @@
-Security checklist for public sharing
-
-1. Confirm no real credentials appear in templates, Python files, env files, or docs.
-2. Confirm the data folder is not committed.
-3. Confirm the logs folder is not committed.
-4. Confirm your server login uses a strong password.
-5. Confirm the bot login uses a real password and not a temporary bypass.
-6. Confirm router port forwarding is disabled for port 5000 unless protected by a VPN.
-7. Confirm all broker keys are stored only on the server.
