@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Evelyn Login</title>
+  <style>
+    body { background:#111; color:#fff; font-family:Arial,sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+    .card { width:100%; max-width:420px; background:#171a1d; border:1px solid #2b3138; border-radius:16px; padding:28px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+    h1 { margin:0 0 10px; text-align:center; }
+    p { color:#cfd6de; text-align:center; }
+    input { width:100%; padding:12px 14px; margin:8px 0 14px; border-radius:10px; border:1px solid #39414a; background:#0f1317; color:#fff; box-sizing:border-box; }
+    button { width:100%; padding:12px 14px; border:0; border-radius:10px; background:#1f8cff; color:white; font-weight:700; cursor:pointer; }
+    .msg { margin-top:14px; text-align:center; color:#9fc5ff; min-height:24px; }
+    .small { font-size:13px; color:#97a3af; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Evelyn</h1>
+    <p>Secure dashboard login</p>
+    <div class="small" style="margin-bottom:12px; text-align:center;">Default username: {{ cfg.admin_username or 'admin' }}</div>
+    <input id="username" placeholder="Username" value="{{ cfg.admin_username or 'admin' }}">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="doLogin()">Sign in</button>
+    <div class="msg" id="msg"></div>
+  </div>
+  <script>
+    async function doLogin() {
+      const msg = document.getElementById('msg');
+      msg.textContent = '';
+
+      try {
+        const r = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value
+          })
+        });
+
+        const text = await r.text();
+        let data = {};
+
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          msg.textContent = 'Server returned invalid response';
+          console.log(text);
+          return;
+        }
+
+        if (data.ok) {
+          msg.textContent = data.bootstrap
+            ? 'Admin password created. Opening dashboard...'
+            : 'Login successful. Opening dashboard...';
+          window.location = '/';
+        } else {
+          msg.textContent = data.msg || 'Login failed';
+        }
+      } catch (e) {
+        msg.textContent = 'Login request failed';
+        console.error(e);
+      }
+    }
+  </script>
+</body>
+</html>
