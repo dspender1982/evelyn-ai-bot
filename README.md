@@ -2,7 +2,7 @@ Public GitHub safe build
 
 Use .env.example as a guide and keep real secrets only on your server.
 
-# # Evelyn AI Bot — Web UI Setup
+# Evelyn AI Bot — Web UI Setup
 Self hosted AI powered trading assistant with dashboard, portfolio reporting, and automation
 
 ## Files
