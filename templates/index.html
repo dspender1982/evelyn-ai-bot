@@ -1,0 +1,2590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evelyn — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:        #0d0f0e;
+    --surface:   #141716;
+    --surface2:  #1a1d1b;
+    --border:    rgba(255,255,255,0.07);
+    --border2:   rgba(255,255,255,0.12);
+    --green:     #2ddf8f;
+    --green-dim: #1a9e60;
+    --red:       #ff5c5c;
+    --amber:     #f5a623;
+    --text:      #e8ece9;
+    --text2:     #7a8c80;
+    --text3:     #4a5a50;
+    --mono:      'DM Mono', monospace;
+    --display:   'Syne', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--display); }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 1rem;
+    display: flex; flex-direction: column; gap: 1rem;
+    overflow-y: auto;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 .5rem; }
+  .brand-icon {
+    width: 34px; height: 34px; background: var(--green); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .brand-icon svg { width: 18px; height: 18px; fill: #0d0f0e; }
+  .brand-name { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+  .brand-sub  { font-size: 11px; color: var(--text2); margin-top: 1px; font-family: var(--mono); }
+
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; color: var(--text2); transition: all .15s;
+    border: none; background: none; width: 100%; text-align: left;
+  }
+  .nav-item:hover   { background: var(--surface2); color: var(--text); }
+  .nav-item.active  { background: rgba(45,223,143,0.1); color: var(--green); }
+  .nav-icon { width: 16px; height: 16px; opacity: .7; }
+
+  .status-card {
+    margin-top: auto;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px;
+  }
+  .status-label { font-size: 11px; color: var(--text2); margin-bottom: 8px; font-family: var(--mono); }
+  .status-pill {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 500;
+  }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+  .pulse.running { background: var(--green); box-shadow: 0 0 0 3px rgba(45,223,143,0.2); animation: pulse 2s infinite; }
+  .pulse.dryrun  { background: var(--amber); }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 3px rgba(45,223,143,0.2)} 50%{box-shadow:0 0 0 6px rgba(45,223,143,0.05)} }
+
+  /* Main */
+  .main { padding: 2rem; overflow-y: auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-title { font-size: 22px; font-weight: 700; margin-bottom: .25rem; }
+  .page-sub   { font-size: 13px; color: var(--text2); margin-bottom: 1.75rem; font-family: var(--mono); }
+
+  /* Metrics row */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+  .metric {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 18px;
+  }
+  .metric-label { font-size: 11px; color: var(--text2); font-family: var(--mono); margin-bottom: 8px; }
+  .metric-value { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+  .metric-value.green { color: var(--green); }
+  .metric-sub   { font-size: 11px; color: var(--text2); margin-top: 4px; font-family: var(--mono); }
+
+  /* Cards */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem;
+  }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .card-title  { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: .08em; font-family: var(--mono); }
+
+  /* Stock table */
+  .stock-head, .stock-row {
+    display: grid; grid-template-columns: 70px 1fr 100px 110px 40px;
+    align-items: center; gap: 10px;
+  }
+  .stock-head { padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 2px; }
+  .stock-head span { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  .stock-row  { padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .stock-row:last-child { border-bottom: none; }
+  .ticker-tag {
+    font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 5px;
+    background: rgba(45,223,143,0.1); color: var(--green); font-family: var(--mono);
+    display: inline-block;
+  }
+  .stock-name { font-size: 13px; color: var(--text); }
+  .stock-price { font-size: 13px; color: var(--text2); font-family: var(--mono); text-align: right; }
+  .amount-wrap { position: relative; }
+  .amount-wrap span { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text2); font-family: var(--mono); }
+  .amount-input {
+    width: 100%; padding: 5px 8px 5px 18px; border-radius: 7px;
+    border: 1px solid var(--border2); background: var(--surface2);
+    color: var(--text); font-size: 13px; font-family: var(--mono);
+    text-align: right;
+  }
+  .amount-input:focus { outline: none; border-color: var(--green-dim); }
+  .rm-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 18px; text-align: center; line-height: 1; padding: 2px 6px; border-radius: 5px; }
+  .rm-btn:hover { color: var(--red); background: rgba(255,92,92,0.08); }
+
+  /* Settings grid */
+  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 11px; color: var(--text2); font-family: var(--mono); }
+  .field input, .field select {
+    padding: 8px 11px; border-radius: 8px;
+    border: 1px solid var(--border2); background: var(--surface2);
+    color: var(--text); font-size: 13px; font-family: var(--display);
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--green-dim); }
+  .field input[type=password] { letter-spacing: .1em; }
+  option { background: var(--surface2); }
+
+  .divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+  /* Toggle */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+  .toggle-info { }
+  .toggle-name { font-size: 13px; color: var(--text); }
+  .toggle-desc { font-size: 11px; color: var(--text2); margin-top: 2px; font-family: var(--mono); }
+  .toggle { position: relative; width: 38px; height: 22px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .tslider { position: absolute; inset: 0; background: var(--border2); border-radius: 22px; cursor: pointer; transition: .2s; }
+  .tslider:before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: var(--text2); border-radius: 50%; transition: .2s; }
+  input:checked + .tslider { background: var(--green-dim); }
+  input:checked + .tslider:before { transform: translateX(16px); background: white; }
+
+  /* Log */
+  .log-wrap {
+    background: var(--surface2); border-radius: 8px;
+    padding: 12px 14px; font-family: var(--mono);
+    font-size: 11.5px; line-height: 1.8; max-height: 220px; overflow-y: auto;
+  }
+  .log-wrap::-webkit-scrollbar { width: 4px; }
+  .log-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .log-line { display: flex; gap: 10px; }
+  .lt  { color: var(--text3); flex-shrink: 0; min-width: 65px; }
+  .lok { color: var(--green); flex-shrink: 0; }
+  .lin { color: var(--text2); flex-shrink: 0; }
+  .lwr { color: var(--amber); flex-shrink: 0; }
+  .ler { color: var(--red);   flex-shrink: 0; }
+  .lmsg { color: var(--text); }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 10px; margin-top: 1rem; }
+  .btn {
+    flex: 1; padding: 9px 16px; border-radius: 8px; font-size: 13px;
+    font-weight: 500; cursor: pointer; border: none; font-family: var(--display);
+    transition: all .15s;
+  }
+  .btn-green  { background: var(--green); color: #0d0f0e; }
+  .btn-green:hover { background: #22c47a; }
+  .btn-outline { background: transparent; border: 1px solid var(--border2); color: var(--text); }
+  .btn-outline:hover { background: var(--surface2); }
+  .btn-red    { background: transparent; border: 1px solid rgba(255,92,92,0.3); color: var(--red); }
+  .btn-red:hover { background: rgba(255,92,92,0.08); }
+  .btn-amber  { background: transparent; border: 1px solid rgba(245,166,35,0.3); color: var(--amber); }
+  .btn-amber:hover { background: rgba(245,166,35,0.08); }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 2rem; right: 2rem;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 12px 18px;
+    font-size: 13px; font-family: var(--mono);
+    opacity: 0; pointer-events: none; transition: opacity .3s;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; pointer-events: auto; }
+  .toast.ok   { border-left: 3px solid var(--green); }
+  .toast.err  { border-left: 3px solid var(--red); }
+
+  /* Next run badge */
+  .next-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--text2); font-family: var(--mono);
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; margin-top: .5rem;
+  }
+  .next-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+
+  /* Add stock row */
+  .add-row { display: flex; gap: 8px; margin-top: 12px; }
+  .add-row input {
+    flex: 1; padding: 7px 11px; border-radius: 8px;
+    border: 1px solid var(--border2); background: var(--surface2);
+    color: var(--text); font-size: 13px; font-family: var(--mono);
+  }
+  .add-row input:focus { outline: none; border-color: var(--green-dim); }
+  .add-row button {
+    padding: 7px 14px; border-radius: 8px; border: 1px solid var(--green-dim);
+    background: rgba(45,223,143,0.08); color: var(--green);
+    font-size: 13px; cursor: pointer; font-family: var(--display);
+  }
+  .add-row button:hover { background: rgba(45,223,143,0.15); }
+
+  /* ── Ticker bar ─────────────────────────────────────────────── */
+  .ticker-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    height: 36px; overflow: hidden;
+    display: flex; align-items: center;
+  }
+  .ticker-label {
+    flex-shrink: 0;
+    background: var(--green); color: #0d0f0e;
+    font-size: 10px; font-weight: 700; letter-spacing: .08em;
+    padding: 0 12px; height: 100%;
+    display: flex; align-items: center;
+    font-family: var(--mono);
+    z-index: 1;
+  }
+  .ticker-track-wrap {
+    flex: 1; overflow: hidden; position: relative;
+  }
+  .ticker-track-wrap::after {
+    content: ""; position: absolute; right: 0; top: 0; bottom: 0;
+    width: 40px;
+    background: linear-gradient(to right, transparent, var(--surface));
+    pointer-events: none;
+  }
+  .ticker-track {
+    display: flex; align-items: center; gap: 0;
+    white-space: nowrap;
+    animation: ticker-scroll 60s linear infinite;
+  }
+  .ticker-track:hover { animation-play-state: paused; }
+  @keyframes ticker-scroll {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .ticker-item {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 0 20px; font-family: var(--mono); font-size: 12px;
+    border-right: 1px solid var(--border);
+  }
+  .ticker-sym  { color: var(--text); font-weight: 500; }
+  .ticker-price { color: var(--text2); }
+  .ticker-chg  { font-size: 11px; }
+  .ticker-chg.up   { color: var(--green); }
+  .ticker-chg.down { color: var(--red); }
+  .ticker-chg.flat { color: var(--text3); }
+  .ticker-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink:0; }
+  .ticker-dot.up   { background: var(--green); }
+  .ticker-dot.down { background: var(--red); }
+  .ticker-dot.flat { background: var(--text3); }
+
+  /* Push layout down to make room for ticker */
+  body { padding-top: 36px; }
+  .layout { min-height: calc(100vh - 36px); }
+  .sidebar { height: calc(100vh - 36px); position: sticky; top: 36px; }
+
+  @media(max-width:700px){
+    .layout{grid-template-columns:1fr}
+    .sidebar{display:none}
+    .metrics{grid-template-columns:1fr 1fr}
+    .settings-grid{grid-template-columns:1fr}
+  }
+
+  /* Broker selector */
+  .broker-option {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 12px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    position: relative; transition: border-color .15s, background .15s;
+    text-align: center;
+  }
+  .broker-option:hover { border-color: var(--border2); background: var(--surface); }
+  .broker-option.selected { border-color: var(--green-dim); background: rgba(45,223,143,0.05); }
+  .broker-logo {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .broker-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .broker-sub  { font-size: 10px; color: var(--text2); font-family: var(--mono); line-height: 1.4; }
+  .broker-check {
+    position: absolute; top: 8px; right: 8px;
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 1.5px solid var(--border2);
+    background: transparent; transition: all .15s;
+  }
+  .broker-option.selected .broker-check {
+    background: var(--green); border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(45,223,143,0.15);
+  }
+  .broker-option.selected .broker-check::after {
+    content: ""; display: block;
+    width: 5px; height: 3px;
+    border-left: 1.5px solid #0d0f0e;
+    border-bottom: 1.5px solid #0d0f0e;
+    transform: rotate(-45deg) translate(3px, 1px);
+  }
+
+  /* Light mode */
+  body.light {
+    --bg:        #f4f6f4;
+    --surface:   #ffffff;
+    --surface2:  #f0f2f0;
+    --border:    rgba(0,0,0,0.08);
+    --border2:   rgba(0,0,0,0.15);
+    --text:      #1a1f1a;
+    --text2:     #5a6e5a;
+    --text3:     #aabcaa;
+    --green-dim: #1a9e60;
+  }
+  body.light .sidebar { background: #ffffff; }
+  body.light .status-card { background: #f0f2f0; }
+  body.light .card { background: #ffffff; }
+  body.light .metric { background: #ffffff; }
+  body.light .ind { background: #f0f2f0; }
+  body.light .log-wrap { background: #f0f2f0; }
+  body.light .field input, body.light .field select { background: #f0f2f0; color: #1a1f1a; }
+  body.light .amount-input { background: #f0f2f0; color: #1a1f1a; }
+  body.light .ticker-bar { background: #ffffff; }
+  .chart-wrap { position:relative; height:240px; margin-bottom:8px; }
+  .chart-tabs { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+  .chart-tab { padding:4px 11px; border-radius:6px; border:1px solid var(--border2); background:transparent; color:var(--text2); font-size:11px; font-family:var(--mono); cursor:pointer; transition:.15s; }
+  .chart-tab:hover { border-color:var(--green-dim); color:var(--text); }
+  .chart-tab.active { background:rgba(45,223,143,0.1); border-color:var(--green); color:var(--green); }
+  .range-tabs { display:flex; gap:4px; margin-bottom:10px; }
+  .range-tab { padding:3px 9px; border-radius:5px; border:none; background:transparent; color:var(--text3); font-size:11px; font-family:var(--mono); cursor:pointer; transition:.15s; }
+  .range-tab:hover { color:var(--text2); }
+  .range-tab.active { background:var(--surface2); color:var(--text); }
+  .price-header { display:flex; align-items:baseline; gap:10px; margin-bottom:3px; }
+  .price-big { font-size:24px; font-weight:700; letter-spacing:-.02em; }
+  .price-chg { font-size:13px; font-weight:500; }
+  .price-chg.up { color:var(--green); } .price-chg.dn { color:var(--red); }
+  .price-meta { font-size:11px; color:var(--text2); font-family:var(--mono); margin-bottom:12px; }
+  .indicators { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:10px; }
+  .ind { background:var(--surface2); border-radius:8px; padding:10px 12px; }
+  .ind-label { font-size:10px; color:var(--text2); font-family:var(--mono); margin-bottom:3px; }
+  .ind-value { font-size:14px; font-weight:600; }
+  .ind-value.bull { color:var(--green); } .ind-value.bear { color:var(--red); } .ind-value.neut { color:var(--amber); }
+  .ind-signal { font-size:10px; color:var(--text2); font-family:var(--mono); margin-top:2px; }
+  /* Agent styles */
+  .vote-row { display:flex; gap:8px; margin-bottom:12px; }
+  .vote-box { flex:1; border-radius:8px; padding:10px; text-align:center; border:1px solid; }
+  .vote-box.vbuy { background:rgba(45,223,143,0.07); border-color:rgba(45,223,143,0.2); }
+  .vote-box.vsell { background:rgba(255,92,92,0.07); border-color:rgba(255,92,92,0.2); }
+  .vote-box.vhold { background:rgba(245,166,35,0.07); border-color:rgba(245,166,35,0.2); }
+  .vote-num { font-size:20px; font-weight:700; }
+  .vote-num.buy { color:var(--green); } .vote-num.sell { color:var(--red); } .vote-num.hold { color:var(--amber); }
+  .vote-lbl { font-size:10px; color:var(--text2); font-family:var(--mono); margin-top:2px; }
+  .verdict-box { background:var(--surface2); border-radius:8px; padding:10px 12px; font-size:12px; font-family:var(--mono); line-height:1.6; margin-bottom:12px; }
+  .agent-card { background:var(--surface2); border-radius:8px; padding:10px 12px; margin-bottom:8px; }
+  .agent-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
+  .agent-name { font-size:12px; font-weight:500; display:flex; align-items:center; gap:7px; }
+  .agent-icon { width:22px; height:22px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
+  .agent-vote { font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px; font-family:var(--mono); }
+  .agent-vote.BUY { background:rgba(45,223,143,0.15); color:var(--green); }
+  .agent-vote.SELL { background:rgba(255,92,92,0.15); color:var(--red); }
+  .agent-vote.HOLD { background:rgba(245,166,35,0.15); color:var(--amber); }
+  .agent-conf { font-size:10px; color:var(--text2); font-family:var(--mono); margin-bottom:4px; }
+  .conf-bar { height:3px; background:var(--border2); border-radius:2px; overflow:hidden; }
+  .conf-fill { height:100%; border-radius:2px; }
+  .agent-reason { font-size:10px; color:var(--text2); font-family:var(--mono); line-height:1.5; margin-top:5px; }
+  .charts-grid { display:grid; grid-template-columns:1fr 300px; gap:12px; }
+  @media(max-width:900px){ .charts-grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div style="position:fixed; top:14px; right:16px; z-index:9999;"><a href="/logout" style="background:#222; color:#fff; text-decoration:none; padding:10px 14px; border-radius:10px; border:1px solid #444;">Logout</a></div>
+
+<!-- Ticker bar -->
+<div class="ticker-bar">
+  <div class="ticker-label" style="gap:6px;padding:0 10px">
+    <img src="/static/evelyn_logo.png" alt="E" style="width:20px;height:20px;border-radius:50%;object-fit:cover">
+    LIVE
+  </div>
+  <div class="ticker-track-wrap">
+    <div class="ticker-track" id="ticker-track">
+      <!-- populated by JS -->
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon" style="background:none;padding:0;width:38px;height:38px;overflow:hidden;border-radius:50%">
+        <img src="/static/evelyn_logo.png" alt="Evelyn" style="width:38px;height:38px;object-fit:cover">
+      </div>
+      <div>
+        <div class="brand-name">Evelyn</div>
+        <div class="brand-sub">TrueNAS · v3 power pack</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-page="dashboard" onclick="showPage('dashboard',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-item" data-page="stocks" onclick="showPage('stocks',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M2 12l3-4 3 3 2-3 4 4H2z"/></svg>
+        Stocks
+      </button>
+      <button class="nav-item" data-page="schedule" onclick="showPage('schedule',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+        Schedule
+      </button>
+      <button class="nav-item" data-page="email" onclick="showPage('email',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="3" width="14" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M1 5l7 5 7-5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+        Email Alerts
+      </button>
+      <button class="nav-item" data-page="charts" onclick="showPage('charts',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1 12l4-5 3 3 3-5 4 4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Charts
+      </button>
+      <button class="nav-item" data-page="smart" onclick="showPage('smart',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 2a5 5 0 110 10A5 5 0 018 3zm0 2a3 3 0 100 6 3 3 0 000-6z"/></svg>
+        Smart Trading
+      </button>
+      <button class="nav-item" data-page="aipicker" onclick="showPage('aipicker',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l1.5 4.5H14l-3.75 2.75L11.5 13 8 10.25 4.5 13l1.25-4.75L2 5.5h4.5z"/></svg>
+        AI Picker
+      </button>
+      <button class="nav-item" data-page="wallet" onclick="showPage('wallet',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="4" width="14" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M1 7h14" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="10" r="1" fill="currentColor"/></svg>
+        Wallet
+      </button>
+      <button class="nav-item" data-page="logs" onclick="showPage('logs',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12M2 7h8M2 11h10" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+        Logs
+      </button>
+      <button class="nav-item" data-page="monitors" onclick="showPage('monitors',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a5 5 0 00-5 5c0 1.5.5 2.5 1 3.5L5 13h6l1-3.5c.5-1 1-2 1-3.5a5 5 0 00-5-5zm-1 13h2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Monitors
+      </button>
+      <button class="nav-item" data-page="broker" onclick="showPage('broker',this)">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M2 5h12v8H2z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 5V3.5A1.5 1.5 0 016.5 2h3A1.5 1.5 0 0111 3.5V5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="9" r="1.5"/></svg>
+        Broker
+      </button>
+
+    </nav>
+
+    <div style="margin-top:auto">
+      <div style="display:flex;gap:6px;margin-bottom:8px;padding:0 2px">
+        <button onclick="toggleTheme()" id="theme-btn" style="flex:1;padding:6px;border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;font-family:var(--sans)">🌙 Dark</button>
+        <button onclick="requestPushNotifications()" id="push-btn" style="flex:1;padding:6px;border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;font-family:var(--sans)">🔔 Alerts</button>
+      </div>
+      <div class="status-card">
+      <div class="status-label">bot status</div>
+      <div class="status-pill">
+        <div class="pulse" id="sb-dot"></div>
+        <span id="sb-text">Loading...</span>
+      </div>
+      <div id="sb-next" class="next-badge" style="display:none">
+        <div class="next-dot"></div>
+        <span id="sb-next-text"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Dashboard -->
+    <div class="page active" id="page-dashboard">
+      <div style="text-align:center; padding:10px 0 20px 0"><img src="/static/evelyn_logo.png" alt="Evelyn AI" style="height:120px;border-radius:18px;box-shadow:0 0 24px rgba(0,200,255,.12)"><div style="font-size:28px;font-weight:700;margin-top:10px">Evelyn <span style="color:var(--green)">AI</span></div></div><div class="page-title">Dashboard</div>
+      <div class="page-sub">Overview of your Evelyn activity</div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">cycle spend</div>
+          <div class="metric-value green" id="m-spend">$0</div>
+          <div class="metric-sub">per run</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">positions</div>
+          <div class="metric-value" id="m-positions">0</div>
+          <div class="metric-sub">active stocks</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">frequency</div>
+          <div class="metric-value" id="m-freq">—</div>
+          <div class="metric-sub" id="m-freq-sub"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">mode</div>
+          <div class="metric-value" id="m-mode">—</div>
+          <div class="metric-sub" id="m-mode-sub"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">power pack</div>
+        </div>
+        <div class="settings-grid">
+          <div>
+            <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:8px">live positions and P and L</div>
+            <div id="pp-positions-summary" style="font-size:14px;margin-bottom:10px">Loading positions...</div>
+            <div class="log-wrap" id="pp-positions" style="max-height:180px"></div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:8px">strategy scan and backtest</div>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <input id="bt-symbol" value="SPY" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text)">
+              <input id="bt-start" value="2024-01-01" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text)">
+            </div>
+            <div class="btn-row" style="margin-top:0">
+              <button class="btn btn-outline" onclick="runStrategyScan()">Scan list</button>
+              <button class="btn btn-green" onclick="runBacktest()">Run backtest</button>
+            </div>
+            <div class="btn-row" style="margin-top:10px">
+              <button class="btn btn-outline" onclick="sendTestAlert()">Send test alert</button>
+            </div>
+            <div class="log-wrap" id="pp-backtest" style="max-height:180px;margin-top:10px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Robinhood account balance row -->
+      <div class="metrics" id="rh-balance-row" style="display:none">
+        <div class="metric">
+          <div class="metric-label">portfolio value</div>
+          <div class="metric-value green" id="rh-equity">—</div>
+          <div class="metric-sub" id="rh-equity-sub">from Robinhood</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">buying power</div>
+          <div class="metric-value" id="rh-cash">—</div>
+          <div class="metric-sub">available cash</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">day change</div>
+          <div class="metric-value" id="rh-daychange">—</div>
+          <div class="metric-sub" id="rh-daychange-sub"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">evelyn wallet</div>
+          <div class="metric-value" id="rh-wallet">—</div>
+          <div class="metric-sub">bot budget</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">quick actions</div>
+        </div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-green" onclick="startBot()">Start bot</button>
+          <button class="btn btn-amber" onclick="runNow()">Run cycle now</button>
+          <button class="btn btn-red" onclick="stopBot()">Stop bot</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">recent activity</div>
+          <button class="btn btn-outline" style="flex:0;padding:5px 12px;font-size:11px" onclick="refreshLogs()">Refresh</button>
+        </div>
+        <div class="log-wrap" id="dash-log">
+          <div class="log-line"><span class="lin">[INFO]</span><span class="lmsg">Loading logs...</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stocks -->
+    <div class="page" id="page-stocks">
+      <div class="page-title">Stocks</div>
+      <div class="page-sub">Configure which stocks to buy and how much per cycle</div>
+      <div class="card">
+        <div class="stock-head">
+          <span>ticker</span><span>name</span><span style="text-align:right">price</span><span style="text-align:right">$/cycle</span><span></span>
+        </div>
+        <div id="stock-list"></div>
+        <div class="add-row">
+          <input id="new-ticker" placeholder="Ticker (e.g. TSLA)" maxlength="8" onkeydown="if(event.key==='Enter')addStock()">
+          <input id="new-amount" placeholder="Amount $" type="number" min="1" style="max-width:120px" onkeydown="if(event.key==='Enter')addStock()">
+          <button onclick="addStock()">+ Add</button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-green" onclick="saveStocks()">Save stocks</button>
+      </div>
+    </div>
+
+    <!-- Schedule -->
+    <div class="page" id="page-schedule">
+      <div class="page-title">Schedule & Safety</div>
+      <div class="page-sub">Control when and how much the bot trades</div>
+      <div class="card">
+        <div class="settings-grid">
+          <div class="field">
+            <label>Buy frequency</label>
+            <select id="s-freq">
+              <option value="daily">Daily (10:00 AM)</option>
+              <option value="weekly">Weekly (Mon 10:00 AM)</option>
+              <option value="monthly">Monthly (1st, 10:00 AM)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Max spend per cycle ($)</label>
+            <input type="number" id="s-maxspend" min="1">
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-name">Alert only mode</div>
+            <div class="toggle-desc">Email buy/sell suggestions — never place real orders</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-alertonly" checked><span class="tslider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-name">Dry run mode</div>
+            <div class="toggle-desc">Simulate trades without real orders</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-dryrun"><span class="tslider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-name">Skip weekends</div>
+            <div class="toggle-desc">Markets closed Sat–Sun</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="tslider"></span></label>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-green" onclick="saveSchedule()">Save schedule</button>
+      </div>
+    </div>
+
+    <!-- Email -->
+    <div class="page" id="page-email">
+      <div class="page-title">Email Alerts</div>
+      <div class="page-sub">Get notified on every trade and weekly summaries</div>
+      <div class="card">
+        <div class="toggle-row" style="padding-top:0">
+          <div class="toggle-info">
+            <div class="toggle-name">Enable email notifications</div>
+            <div class="toggle-desc">Trade alerts + Sunday portfolio summary</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="e-enabled" onchange="toggleEmailFields()"><span class="tslider"></span></label>
+        </div>
+        <div id="email-fields">
+          <div class="divider"></div>
+          <div class="settings-grid">
+            <div class="field">
+              <label>Gmail sender address</label>
+              <input type="email" id="e-sender" placeholder="you@gmail.com">
+            </div>
+            <div class="field">
+              <label>Gmail app password</label>
+              <input type="password" id="e-pass" placeholder="Leave blank to keep existing">
+            </div>
+          </div>
+          <div class="field" style="margin-top:12px">
+            <label>Send alerts to</label>
+            <input type="email" id="e-recipient" placeholder="recipient@example.com">
+          </div>
+          <div class="divider"></div>
+          <div style="font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.7">
+            To get a Gmail app password: Google Account → Security → 2-Step Verification → App Passwords → Generate for "Mail"
+          </div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-green" onclick="saveEmail()">Save email settings</button>
+      </div>
+    </div>
+
+    <!-- Smart Trading -->
+    <div class="page" id="page-smart">
+      <div class="page-title">Smart Trading</div>
+      <div class="page-sub">Auto-sell rules and live news research before buying</div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">profit target — auto-sell</div>
+        <div class="toggle-row" style="padding-top:0">
+          <div class="toggle-info">
+            <div class="toggle-name">Enable profit target</div>
+            <div class="toggle-desc">Automatically sell when a stock gains enough</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="st-profit-on" checked><span class="tslider"></span></label>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Sell when gain reaches (%)</label>
+          <input type="number" id="st-profit-pct" value="20" min="1" max="1000" style="max-width:160px">
+        </div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:8px;line-height:1.6">
+          Example: set to 20 → bot sells when a stock is up 20% from your average buy price
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">stop-loss — auto-sell</div>
+        <div class="toggle-row" style="padding-top:0">
+          <div class="toggle-info">
+            <div class="toggle-name">Enable stop-loss</div>
+            <div class="toggle-desc">Automatically sell to limit your losses</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="st-loss-on" checked><span class="tslider"></span></label>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Sell when loss reaches (%)</label>
+          <input type="number" id="st-loss-pct" value="10" min="1" max="100" style="max-width:160px">
+        </div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:8px;line-height:1.6">
+          Example: set to 10 → bot sells when a stock is down 10% from your average buy price
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">news research — smart buy filter</div>
+        <div class="toggle-row" style="padding-top:0">
+          <div class="toggle-info">
+            <div class="toggle-name">Enable news check before buying</div>
+            <div class="toggle-desc">Skip buying stocks with negative news sentiment</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="st-news-on" checked><span class="tslider"></span></label>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Minimum news sentiment score (−5 worst / +5 best)</label>
+          <input type="number" id="st-news-score" value="-2" min="-5" max="5" style="max-width:160px">
+        </div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:8px;line-height:1.6">
+          The bot reads Yahoo Finance headlines before each buy cycle and scores the sentiment.<br>
+          Stocks that score below the minimum are skipped — you get an email explaining why.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">monitor interval</div>
+        <div class="field">
+          <label>Check for profit target / stop-loss every (minutes)</label>
+          <input type="number" id="st-interval" value="60" min="5" max="1440" style="max-width:160px">
+        </div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:8px;line-height:1.6">
+          Only runs during market hours (Mon–Fri, 9:30 AM – 4:00 PM). Shorter intervals = faster reaction but more API calls.
+        </div>
+      </div>
+
+
+<div class="card">
+  <div class="card-title" style="margin-bottom:1rem">strategy engine and risk controls</div>
+  <div class="settings-grid">
+    <div class="field">
+      <label>Strategy mode</label>
+      <select id="st-strategy-mode">
+        <option value="hybrid">Hybrid</option>
+        <option value="rsi">RSI only</option>
+        <option value="trend">Trend only</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>RSI buy below</label>
+      <input type="number" id="st-rsi-buy" value="35" min="5" max="95">
+    </div>
+    <div class="field">
+      <label>Short moving average</label>
+      <input type="number" id="st-ma-short" value="20" min="5" max="200">
+    </div>
+    <div class="field">
+      <label>Long moving average</label>
+      <input type="number" id="st-ma-long" value="50" min="10" max="400">
+    </div>
+    <div class="field">
+      <label>Max trade amount</label>
+      <input type="number" id="st-max-trade" value="50" min="1">
+    </div>
+    <div class="field">
+      <label>Max trades per day</label>
+      <input type="number" id="st-max-trades-day" value="5" min="1">
+    </div>
+    <div class="field">
+      <label>Max daily spend</label>
+      <input type="number" id="st-max-daily-spend" value="250" min="1">
+    </div>
+    <div class="field">
+      <label>Dip buy percent</label>
+      <input type="number" id="st-dip-pct" value="5" min="1" max="50">
+    </div>
+  </div>
+  <div class="toggle-row" style="margin-top:10px">
+    <div class="toggle-info">
+      <div class="toggle-name">Enable strategy engine</div>
+      <div class="toggle-desc">Only buy when the signal agrees</div>
+    </div>
+    <label class="toggle"><input type="checkbox" id="st-strategy-on" checked><span class="tslider"></span></label>
+  </div>
+  <div class="toggle-row">
+    <div class="toggle-info">
+      <div class="toggle-name">Enable dip buy boost</div>
+      <div class="toggle-desc">Increase trade size on deeper pullbacks</div>
+    </div>
+    <label class="toggle"><input type="checkbox" id="st-dip-on" checked><span class="tslider"></span></label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title" style="margin-bottom:1rem">telegram alerts</div>
+  <div class="settings-grid">
+    <div class="field">
+      <label>Telegram bot token</label>
+      <input type="password" id="tg-token" placeholder="Optional">
+    </div>
+    <div class="field">
+      <label>Telegram chat ID</label>
+      <input type="text" id="tg-chat" placeholder="Optional">
+    </div>
+  </div>
+  <div class="toggle-row" style="margin-top:10px">
+    <div class="toggle-info">
+      <div class="toggle-name">Enable Telegram alerts</div>
+      <div class="toggle-desc">Trade and risk alerts also go to Telegram</div>
+    </div>
+    <label class="toggle"><input type="checkbox" id="tg-enabled"><span class="tslider"></span></label>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button class="btn btn-green" onclick="saveSmart()">Save smart trading settings</button>
+</div>
+
+    </div>
+
+    <!-- Wallet -->
+    <div class="page" id="page-wallet">
+      <div class="page-title">Bot Wallet</div>
+      <div class="page-sub">The bot only spends from this balance — never your bank or Robinhood cash</div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">available balance</div>
+          <div class="metric-value green" id="w-balance">$0.00</div>
+          <div class="metric-sub">ready to trade</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">total deposited</div>
+          <div class="metric-value" id="w-deposited">$0.00</div>
+          <div class="metric-sub">all time</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">total spent</div>
+          <div class="metric-value" id="w-spent">$0.00</div>
+          <div class="metric-sub">on trades</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">cycles left</div>
+          <div class="metric-value" id="w-cycles">—</div>
+          <div class="metric-sub">at current rate</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">add funds to wallet</div>
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div class="field" style="flex:1">
+            <label>Amount ($)</label>
+            <input type="number" id="w-amount" placeholder="e.g. 100" min="1">
+          </div>
+          <div class="field" style="flex:2">
+            <label>Note (optional)</label>
+            <input type="text" id="w-note" placeholder="e.g. Monthly top-up">
+          </div>
+          <button class="btn btn-green" style="flex:0;white-space:nowrap;margin-bottom:0" onclick="depositWallet()">Add funds</button>
+        </div>
+        <div style="margin-top:12px;font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.7;background:var(--surface2);border-radius:8px;padding:10px 12px">
+          This only updates the bot's internal spending budget. You still need to manually transfer money into your Robinhood account separately. The bot will draw down this wallet balance as it trades, and stop automatically when funds run out.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">transaction history</div>
+          <button class="btn btn-outline" style="flex:0;padding:5px 12px;font-size:11px" onclick="loadWallet()">Refresh</button>
+        </div>
+        <div class="log-wrap" id="w-history" style="max-height:280px">
+          <div class="log-line"><span class="lin">[INFO]</span><span class="lmsg">Loading wallet...</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts & AI Agents -->
+    <div class="page" id="page-charts">
+      <div class="page-title">Charts & AI Agents</div>
+      <div class="page-sub">Live price charts, technical indicators and AI agent council</div>
+
+      <!-- Sub tabs -->
+      <div style="display:flex;gap:6px;margin-bottom:1rem">
+        <button class="chart-tab active" id="ctab-price" onclick="switchChartTab('price',this)">Price Chart</button>
+        <button class="chart-tab" id="ctab-agents" onclick="switchChartTab('agents',this)">AI Agents</button>
+        <button class="chart-tab" id="ctab-portfolio" onclick="switchChartTab('portfolio',this)">Portfolio</button>
+      </div>
+
+      <!-- Price Chart -->
+      <div id="ctab-price-content">
+        <div class="chart-tabs" id="price-stock-tabs"></div>
+        <div class="range-tabs">
+          <button class="range-tab active" onclick="setChartRange('5d',this)">1W</button>
+          <button class="range-tab" onclick="setChartRange('1mo',this)">1M</button>
+          <button class="range-tab" onclick="setChartRange('3mo',this)">3M</button>
+          <button class="range-tab" onclick="setChartRange('1y',this)">1Y</button>
+        </div>
+        <div class="card">
+          <div class="price-header">
+            <div class="price-big" id="cp-price">—</div>
+            <div class="price-chg" id="cp-change">—</div>
+          </div>
+          <div class="price-meta" id="cp-meta">Select a stock to load chart</div>
+          <div class="chart-wrap"><canvas id="main-price-chart"></canvas></div>
+          <div class="indicators" id="main-indicators"></div>
+        </div>
+      </div>
+
+      <!-- AI Agents -->
+      <div id="ctab-agents-content" style="display:none">
+        <div class="charts-grid">
+          <div>
+            <div class="card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div>
+                  <div style="font-size:14px;font-weight:600">AI Agent Council</div>
+                  <div style="font-size:11px;color:var(--text2);font-family:var(--mono)" id="agent-analyzing-label">Select a stock below</div>
+                </div>
+                <button class="btn btn-green" style="flex:0;padding:6px 14px;font-size:12px" onclick="runAgentAnalysis()">Run analysis</button>
+              </div>
+              <div class="chart-tabs" id="agent-stock-tabs-main"></div>
+              <div class="vote-row" style="margin-top:12px">
+                <div class="vote-box vbuy"><div class="vote-num buy" id="av-buy">0</div><div class="vote-lbl">BUY</div></div>
+                <div class="vote-box vhold"><div class="vote-num hold" id="av-hold">0</div><div class="vote-lbl">HOLD</div></div>
+                <div class="vote-box vsell"><div class="vote-num sell" id="av-sell">0</div><div class="vote-lbl">SELL</div></div>
+              </div>
+              <div class="verdict-box" id="agent-verdict">Click Run analysis to see the AI agent council vote.</div>
+              <div id="agent-cards"></div>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-title">consensus history</div>
+              <div id="consensus-history" style="font-size:11px;color:var(--text2);font-family:var(--mono);line-height:2">No analyses run yet.</div>
+            </div>
+            <div class="card" style="margin-top:0">
+              <div class="card-title">market conditions</div>
+              <div style="font-family:var(--mono);font-size:11px;line-height:2.2">
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Alert mode</span><span style="color:var(--green)">ON</span></div>
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Market hours</span><span id="mkt-hours" style="color:var(--text)">—</span></div>
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Last analysis</span><span id="last-analysis-time" style="color:var(--text)">—</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Portfolio Chart -->
+      <div id="ctab-portfolio-content" style="display:none">
+        <div class="card">
+          <div class="card-title">portfolio value — 90 days</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+            <div class="ind"><div class="ind-label">total value</div><div class="ind-value" id="pv-total">—</div></div>
+            <div class="ind"><div class="ind-label">gain/loss</div><div class="ind-value" id="pv-gain">—</div></div>
+            <div class="ind"><div class="ind-label">best pick</div><div class="ind-value bull" id="pv-best">—</div></div>
+            <div class="ind"><div class="ind-label">worst pick</div><div class="ind-value bear" id="pv-worst">—</div></div>
+          </div>
+          <div class="chart-wrap" style="height:280px"><canvas id="portfolio-main-chart"></canvas></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Logs -->
+    <!-- AI Picker -->
+    <div class="page" id="page-aipicker">
+      <div class="page-title">AI Picker</div>
+      <div class="page-sub">Let the bot research and pick stocks automatically using news and price trends</div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">trading mode</div>
+        <div class="toggle-row" style="padding-top:0">
+          <div>
+            <div class="toggle-name">AI mode</div>
+            <div class="toggle-desc">ON = bot picks stocks automatically | OFF = you pick manually</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="ai-mode" onchange="updateAIMode()"><span class="tslider"></span></label>
+        </div>
+        <div id="ai-mode-note" style="display:none;margin-top:10px;font-size:11px;color:var(--amber);font-family:var(--mono);padding:8px 12px;background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.15);border-radius:8px;line-height:1.7">
+          AI mode is ON. The bot will ignore your manual stock list and pick its own stocks each cycle using news sentiment and price trend analysis. Your manual list is saved and will return when you switch back.
+        </div>
+        <div id="manual-mode-note" style="margin-top:10px;font-size:11px;color:var(--text2);font-family:var(--mono);padding:8px 12px;background:var(--surface2);border-radius:8px;line-height:1.7">
+          Manual mode is ON. The bot uses the stocks you picked in the Stocks tab. Switch to AI mode to let the bot pick automatically.
+        </div>
+      </div>
+
+      <div class="card" id="ai-settings-card">
+        <div class="card-title" style="margin-bottom:1rem">ai picker settings</div>
+        <div class="settings-grid">
+          <div class="field">
+            <label>Number of stocks to pick</label>
+            <input type="number" id="ai-num-stocks" value="5" min="1" max="20" style="max-width:160px">
+          </div>
+          <div class="field">
+            <label>$ to invest in each pick</label>
+            <input type="number" id="ai-dollar-each" value="20" min="1" style="max-width:160px">
+          </div>
+        </div>
+        <div style="margin-top:12px;font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.7;background:var(--surface2);border-radius:8px;padding:10px 12px">
+          The AI scans 50 popular stocks every cycle. It scores each one using news sentiment and 5-day/20-day price momentum, then picks the top performers. You get an email with the picks and reasoning every time it runs.
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-green" onclick="saveAISettings()">Save AI settings</button>
+          <button class="btn btn-amber" onclick="runAIPicker()">Run AI picker now</button>
+        </div>
+      </div>
+
+      <div class="card" id="ai-last-picks-card" style="display:none">
+        <div class="card-title" style="margin-bottom:.75rem">last ai picks</div>
+        <div id="ai-picks-list"></div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:8px" id="ai-picks-time"></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-logs">
+      <div class="page-title">Activity Logs</div>
+      <div class="page-sub">Live output from evelyn.py</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">evelyn.log</div>
+          <button class="btn btn-outline" style="flex:0;padding:5px 12px;font-size:11px" onclick="refreshLogs()">Refresh</button>
+        </div>
+        <div class="log-wrap" id="full-log" style="max-height:420px"></div>
+      </div>
+    </div>
+
+    <!-- Broker -->
+    <!-- Monitors -->
+    <div class="page" id="page-monitors">
+      <div class="page-title">Monitors & Alerts</div>
+      <div class="page-sub">Set price targets, track earnings, volume spikes and insider activity</div>
+
+      <!-- Price Targets -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">price target alerts</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+          <div class="field" style="flex:1;min-width:100px">
+            <label>Ticker</label>
+            <input type="text" id="pt-ticker" placeholder="e.g. AAPL" maxlength="8" style="text-transform:uppercase">
+          </div>
+          <div class="field" style="flex:1;min-width:100px">
+            <label>Target price ($)</label>
+            <input type="number" id="pt-price" placeholder="e.g. 220" min="0" step="0.01">
+          </div>
+          <div class="field" style="flex:1;min-width:100px">
+            <label>Alert when price is</label>
+            <select id="pt-direction">
+              <option value="above">Above target</option>
+              <option value="below">Below target</option>
+            </select>
+          </div>
+          <button class="btn btn-green" style="flex:0;white-space:nowrap" onclick="addPriceTarget()">Set alert</button>
+        </div>
+        <div id="pt-list" style="font-size:12px;color:var(--text2);font-family:var(--mono)">No price targets set yet.</div>
+      </div>
+
+      <!-- Earnings, Volume, Insider toggles -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">monitor settings</div>
+        <div class="toggle-row" style="padding-top:0">
+          <div><div class="toggle-name">Earnings calendar alerts</div><div class="toggle-desc">Email 2 days before a stock reports earnings</div></div>
+          <label class="toggle"><input type="checkbox" id="mon-earnings" checked><span class="tslider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-name">Unusual volume alerts</div><div class="toggle-desc">Email when a stock's volume spikes above normal</div></div>
+          <label class="toggle"><input type="checkbox" id="mon-volume" checked><span class="tslider"></span></label>
+        </div>
+        <div class="field" style="margin:4px 0 12px 0">
+          <label>Volume spike threshold (x times average)</label>
+          <input type="number" id="mon-vol-threshold" value="2.0" min="1.5" max="10" step="0.5" style="max-width:120px">
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-name">Insider trading alerts</div><div class="toggle-desc">Email when executives buy or sell their own stock</div></div>
+          <label class="toggle"><input type="checkbox" id="mon-insider" checked><span class="tslider"></span></label>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-green" onclick="saveMonitors()">Save monitor settings</button>
+        </div>
+      </div>
+
+      <!-- How it works -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:.75rem">how monitors work</div>
+        <div style="font-size:12px;color:var(--text2);font-family:var(--mono);line-height:2">
+          <div>📊 <span style="color:var(--text)">Price targets</span> — checked every 30 minutes during market hours</div>
+          <div>📅 <span style="color:var(--text)">Earnings</span> — checked every morning at 8:00 AM</div>
+          <div>📈 <span style="color:var(--text)">Volume spikes</span> — checked every 30 minutes</div>
+          <div>🤝 <span style="color:var(--text)">Insider activity</span> — checked once per day</div>
+          <div style="margin-top:8px;color:var(--text3)">All alerts are email only. Evelyn never trades automatically.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-broker">
+      <div class="page-title">Broker</div>
+      <div class="page-sub">Choose your broker and enter your account credentials</div>
+
+      <!-- Active brokers -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">select broker</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:1rem">
+
+          <div class="broker-option" id="broker-robinhood" onclick="selectBroker('robinhood')">
+            <div class="broker-check" id="bcheck-robinhood"></div>
+            <div class="broker-logo" style="background:#00c805">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+            </div>
+            <div class="broker-name">Robinhood</div>
+            <div class="broker-sub">US stocks · crypto · options</div>
+          </div>
+
+          <div class="broker-option" id="broker-webull" onclick="selectBroker('webull')">
+            <div class="broker-check" id="bcheck-webull"></div>
+            <div class="broker-logo" style="background:#1db3ff">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M7 7l5 10 5-10"/></svg>
+            </div>
+            <div class="broker-name">Webull</div>
+            <div class="broker-sub">US stocks · ETFs · options</div>
+          </div>
+
+          <div class="broker-option" id="broker-alpaca" onclick="selectBroker('alpaca')">
+            <div class="broker-check" id="bcheck-alpaca"></div>
+            <div class="broker-logo" style="background:#FFCD05">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="#333"><path d="M12 3L4 9v12h16V9L12 3zm0 2.5l6 4.5v9H6V10l6-4.5z"/></svg>
+            </div>
+            <div class="broker-name">Alpaca</div>
+            <div class="broker-sub">API-first · paper trading</div>
+          </div>
+
+        </div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.6;background:var(--surface2);border-radius:8px;padding:10px 12px">
+          Robinhood and Alpaca are active in this build. Webull is still a placeholder.
+        </div>
+      </div>
+
+      <!-- Robinhood credentials -->
+      <div class="card" id="creds-robinhood">
+        <div class="card-title" style="margin-bottom:1rem">robinhood credentials</div>
+        <div class="settings-grid">
+          <div class="field">
+            <label>Robinhood email</label>
+            <input type="email" id="sec-rh-user" placeholder="your@email.com">
+          </div>
+          <div class="field">
+            <label>Robinhood password</label>
+            <input type="password" id="sec-rh-pass" placeholder="Leave blank to keep existing">
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:10px;line-height:1.7;background:var(--surface2);border-radius:8px;padding:10px 12px">
+          Stored only on your server — never sent anywhere else. Robinhood may send a 2FA code to your phone the first time the bot logs in.
+        </div>
+
+        <!-- Connection status box -->
+        <div id="rh-conn-status" style="display:none;margin-top:10px;border-radius:8px;padding:12px 14px;font-size:12px;font-family:var(--mono);line-height:1.8"></div>
+
+        <div class="btn-row">
+          <button class="btn btn-green" onclick="saveRobinhoodCreds()">Save credentials</button>
+          <button class="btn" id="rh-test-btn" onclick="testRobinhoodConnection()" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text)">🔌 Test connection</button>
+        </div>
+      </div>
+
+      <!-- Webull credentials -->
+      <div class="card" id="creds-webull" style="display:none">
+        <div class="card-title" style="margin-bottom:1rem">webull credentials</div>
+        <div class="settings-grid">
+          <div class="field"><label>Webull email</label><input type="email" id="wb-user" placeholder="your@email.com"></div>
+          <div class="field"><label>Webull password</label><input type="password" id="wb-pass" placeholder="Leave blank to keep existing"></div>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Trading PIN</label>
+          <input type="password" id="wb-pin" placeholder="6-digit trading PIN" style="max-width:200px">
+        </div>
+        <div id="wb-conn-status" style="display:none;margin-top:10px;border-radius:8px;padding:12px 14px;font-size:12px;font-family:var(--mono);line-height:1.8"></div>
+        <div style="font-size:11px;color:var(--amber);font-family:var(--mono);margin-top:10px;padding:8px 12px;background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.15);border-radius:8px">
+          Webull integration coming soon — credentials will be saved but live trading is not yet active.
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-green" onclick="saveBrokerCreds('webull')">Save credentials</button>
+          <button class="btn" onclick="testComingSoon('wb-conn-status','Webull')" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text)">🔌 Test connection</button>
+        </div>
+      </div>
+
+      <!-- Alpaca credentials -->
+      <div class="card" id="creds-alpaca" style="display:none">
+        <div class="card-title" style="margin-bottom:1rem">alpaca api credentials</div>
+        <div class="settings-grid">
+          <div class="field"><label>API Key ID</label><input type="text" id="alp-key" placeholder="PKXXXXXXXXXXXXXXXXXX"></div>
+          <div class="field"><label>Secret Key</label><input type="password" id="alp-secret" placeholder="Leave blank to keep existing"></div>
+        </div>
+        <div class="toggle-row" style="margin-top:10px">
+          <div class="toggle-info">
+            <div class="toggle-name">Paper trading mode</div>
+            <div class="toggle-desc">Use Alpaca paper account (no real money)</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="alp-paper" checked><span class="tslider"></span></label>
+        </div>
+        <div id="alp-conn-status" style="display:none;margin-top:10px;border-radius:8px;padding:12px 14px;font-size:12px;font-family:var(--mono);line-height:1.8"></div>
+        <div style="font-size:11px;color:var(--amber);font-family:var(--mono);margin-top:10px;padding:8px 12px;background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.15);border-radius:8px">
+          Alpaca is active in this build. Start with paper mode before you use any live keys.
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-green" onclick="saveBrokerCreds('alpaca')">Save credentials</button>
+          <button class="btn" onclick="testBrokerConnection('alpaca')" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text)">🔌 Test connection</button>
+        </div>
+      </div>
+
+      <!-- Bot Supported Brokers — Full API -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">🔧 bot supported — full api access</div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:12px;line-height:1.6">
+          These platforms have full API support and can be integrated with Evelyn for automated trading.
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+
+          <div style="background:var(--surface2);border-radius:10px;padding:14px;border:1px solid var(--border2)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-size:13px;font-weight:600">Interactive Brokers</div>
+              <span style="font-size:10px;background:rgba(45,223,143,0.15);color:var(--green);padding:2px 8px;border-radius:4px;font-family:var(--mono)">BOT SUPPORTED</span>
+            </div>
+            <div style="font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.8">
+              Gold standard for bot trading<br>
+              Stocks · options · futures · forex<br>
+              Full Python API support
+            </div>
+            <a href="https://www.interactivebrokers.com" target="_blank" style="display:inline-block;margin-top:8px;font-size:11px;color:var(--green);font-family:var(--mono)">interactivebrokers.com →</a>
+          </div>
+
+          <div style="background:var(--surface2);border-radius:10px;padding:14px;border:1px solid var(--border2)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-size:13px;font-weight:600">Alpaca</div>
+              <span style="font-size:10px;background:rgba(45,223,143,0.15);color:var(--green);padding:2px 8px;border-radius:4px;font-family:var(--mono)">BOT SUPPORTED</span>
+            </div>
+            <div style="font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.8">
+              Built specifically for developers<br>
+              Stocks · crypto · commission-free<br>
+              Designed for bots and apps
+            </div>
+            <a href="https://alpaca.markets" target="_blank" style="display:inline-block;margin-top:8px;font-size:11px;color:var(--green);font-family:var(--mono)">alpaca.markets →</a>
+          </div>
+
+          <div style="background:var(--surface2);border-radius:10px;padding:14px;border:1px solid var(--border2)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-size:13px;font-weight:600">TradeStation</div>
+              <span style="font-size:10px;background:rgba(45,223,143,0.15);color:var(--green);padding:2px 8px;border-radius:4px;font-family:var(--mono)">BOT SUPPORTED</span>
+            </div>
+            <div style="font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.8">
+              Strong algo trading support<br>
+              Built-in strategy tools + API<br>
+              Trader-focused platform
+            </div>
+            <a href="https://www.tradestation.com" target="_blank" style="display:inline-block;margin-top:8px;font-size:11px;color:var(--green);font-family:var(--mono)">tradestation.com →</a>
+          </div>
+
+          <div style="background:var(--surface2);border-radius:10px;padding:14px;border:1px solid var(--border2)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-size:13px;font-weight:600">Public</div>
+              <span style="font-size:10px;background:rgba(45,223,143,0.15);color:var(--green);padding:2px 8px;border-radius:4px;font-family:var(--mono)">BOT SUPPORTED</span>
+            </div>
+            <div style="font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.8">
+              Stocks · ETFs · options API<br>
+              Real-time execution<br>
+              Programmatic automated trades
+            </div>
+            <a href="https://public.com" target="_blank" style="display:inline-block;margin-top:8px;font-size:11px;color:var(--green);font-family:var(--mono)">public.com →</a>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Bot Connector Platforms -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">⚙️ bot connectors — automated setup</div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:12px;line-height:1.6">
+          These platforms connect bots to brokers for you — no coding required.
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+
+          <div style="background:var(--surface2);border-radius:10px;padding:14px;border:1px solid var(--border2)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-size:13px;font-weight:600">TradersPost</div>
+              <span style="font-size:10px;background:rgba(45,223,143,0.15);color:var(--green);padding:2px 8px;border-radius:4px;font-family:var(--mono)">BOT SUPPORTED</span>
+            </div>
+            <div style="font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.8">
+              Connects TradingView signals<br>
+              Stocks · crypto · futures<br>
+              Handles execution for you
+            </div>
+            <a href="https://traderspost.io" target="_blank" style="display:inline-block;margin-top:8px;font-size:11px;color:var(--green);font-family:var(--mono)">traderspost.io →</a>
+          </div>
+
+          <div style="background:var(--surface2);border-radius:10px;padding:14px;border:1px solid var(--border2)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-size:13px;font-weight:600">StockHero</div>
+              <span style="font-size:10px;background:rgba(45,223,143,0.15);color:var(--green);padding:2px 8px;border-radius:4px;font-family:var(--mono)">BOT SUPPORTED</span>
+            </div>
+            <div style="font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.8">
+              Pre-built bots + marketplace<br>
+              Rent or build strategies<br>
+              Multiple brokers via API
+            </div>
+            <a href="https://stockhero.ai" target="_blank" style="display:inline-block;margin-top:8px;font-size:11px;color:var(--green);font-family:var(--mono)">stockhero.ai →</a>
+          </div>
+
+          <div style="background:var(--surface2);border-radius:10px;padding:14px;border:1px solid var(--border2)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-size:13px;font-weight:600">QuantConnect</div>
+              <span style="font-size:10px;background:rgba(45,223,143,0.15);color:var(--green);padding:2px 8px;border-radius:4px;font-family:var(--mono)">BOT SUPPORTED</span>
+            </div>
+            <div style="font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.8">
+              Full dev environment<br>
+              Backtesting + live trading<br>
+              AI + machine learning
+            </div>
+            <a href="https://www.quantconnect.com" target="_blank" style="display:inline-block;margin-top:8px;font-size:11px;color:var(--green);font-family:var(--mono)">quantconnect.com →</a>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────
+let cfg = {};
+let stocks = {};
+let activeBroker = 'robinhood';
+
+// ── Broker ────────────────────────────────────────────────────────
+function selectBroker(broker) {
+  activeBroker = broker;
+  ['robinhood','webull','alpaca'].forEach(b => {
+    document.getElementById('broker-' + b).classList.toggle('selected', b === broker);
+    const creds = document.getElementById('creds-' + b);
+    if (creds) creds.style.display = b === broker ? 'block' : 'none';
+  });
+  cfg.broker = broker;
+}
+
+function applyBroker() {
+  const broker = cfg.broker || 'robinhood';
+  selectBroker(broker);
+
+  const rhUser = document.getElementById('sec-rh-user');
+  if (rhUser) rhUser.value = cfg.rh_username || '';
+
+  const alpKey = document.getElementById('alp-key');
+  if (alpKey) alpKey.value = cfg.alpaca_key || '';
+
+  const alpPaper = document.getElementById('alp-paper');
+  if (alpPaper) alpPaper.checked = cfg.alpaca_paper !== false;
+}
+
+async function saveBrokerCreds(broker) {
+  cfg.broker = broker;
+
+  if (broker === 'robinhood') {
+    cfg.rh_username = document.getElementById('sec-rh-user').value.trim();
+    cfg.rh_password = document.getElementById('sec-rh-pass').value;
+  }
+
+  if (broker === 'alpaca') {
+    cfg.alpaca_key = document.getElementById('alp-key').value.trim();
+    cfg.alpaca_secret = document.getElementById('alp-secret').value;
+    cfg.alpaca_paper = document.getElementById('alp-paper').checked;
+  }
+
+  await postConfig(cfg);
+  toast('Credentials saved', 'ok');
+
+  const rhPass = document.getElementById('sec-rh-pass');
+  if (rhPass) rhPass.value = '';
+  const alpSecret = document.getElementById('alp-secret');
+  if (alpSecret) alpSecret.value = '';
+}
+
+async function testBrokerConnection(broker) {
+  if (broker) {
+    cfg.broker = broker;
+    await postConfig(cfg);
+    selectBroker(broker);
+  }
+
+  const statusId = (cfg.broker || 'robinhood') === 'alpaca' ? 'alp-conn-status' : 'rh-conn-status';
+  const box = document.getElementById(statusId);
+  if (box) {
+    box.style.display = 'block';
+    box.style.background = 'rgba(245,166,35,0.08)';
+    box.style.border = '1px solid rgba(245,166,35,0.25)';
+    box.style.color = 'var(--amber)';
+    box.innerHTML = 'Testing connection...';
+  }
+
+  try {
+    const r = await fetch('/api/test-connection', {method:'POST'});
+    const d = await r.json();
+    if (d.ok) {
+      if (box) {
+        box.style.background = 'rgba(45,223,143,0.08)';
+        box.style.border = '1px solid rgba(45,223,143,0.25)';
+        box.style.color = 'var(--green)';
+        const modeText = (cfg.broker || 'robinhood') === 'alpaca' ? ('<br>Mode: ' + ((cfg.alpaca_paper !== false) ? 'Paper' : 'Live')) : '';
+        box.innerHTML = 'Connected successfully.<br>Equity: $' + (d.equity || 0).toLocaleString() + '<br>Cash: $' + (d.cash || 0).toLocaleString() + '<br>Positions: ' + (d.num_pos || 0) + modeText;
+      }
+      toast('Connection successful', 'ok');
+      loadRHBalance();
+      return;
+    }
+    if (box) {
+      box.style.background = 'rgba(255,92,92,0.08)';
+      box.style.border = '1px solid rgba(255,92,92,0.25)';
+      box.style.color = 'var(--red)';
+      box.textContent = d.msg || 'Connection failed';
+    }
+    toast(d.msg || 'Connection failed', 'err');
+  } catch(e) {
+    if (box) {
+      box.style.background = 'rgba(255,92,92,0.08)';
+      box.style.border = '1px solid rgba(255,92,92,0.25)';
+      box.style.color = 'var(--red)';
+      box.textContent = 'Connection failed';
+    }
+    toast('Connection failed', 'err');
+  }
+}
+
+// ── AI Picker ─────────────────────────────────────────────────────
+function updateAIMode() {
+  const on = document.getElementById('ai-mode').checked;
+  document.getElementById('ai-mode-note').style.display    = on ? 'block' : 'none';
+  document.getElementById('manual-mode-note').style.display = on ? 'none' : 'block';
+}
+
+function applyAIPicker() {
+  const el = document.getElementById('ai-mode');
+  if (el) el.checked = !!cfg.ai_mode;
+  const ns = document.getElementById('ai-num-stocks');
+  if (ns) ns.value = cfg.ai_num_stocks || 5;
+  const de = document.getElementById('ai-dollar-each');
+  if (de) de.value = cfg.ai_dollar_each || 20;
+  updateAIMode();
+  loadAIPicks();
+}
+
+async function saveAISettings() {
+  cfg.ai_mode        = document.getElementById('ai-mode').checked;
+  cfg.ai_num_stocks  = parseInt(document.getElementById('ai-num-stocks').value) || 5;
+  cfg.ai_dollar_each = parseFloat(document.getElementById('ai-dollar-each').value) || 20;
+  await postConfig(cfg);
+}
+
+async function runAIPicker() {
+  toast('Running AI picker — this may take a minute...', 'ok');
+  const r = await fetch('/api/ai-pick', {method:'POST'});
+  const d = await r.json();
+  if (d.ok) {
+    toast('AI picked ' + d.picks.length + ' stocks!', 'ok');
+    loadAIPicks();
+  } else {
+    toast(d.msg || 'Failed', 'err');
+  }
+}
+
+async function loadAIPicks() {
+  try {
+    const r = await fetch('/api/ai-picks');
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d.picks || !d.picks.length) return;
+    document.getElementById('ai-last-picks-card').style.display = 'block';
+    document.getElementById('ai-picks-time').textContent = 'Last updated: ' + d.timestamp.replace('T',' ').slice(0,19);
+    document.getElementById('ai-picks-list').innerHTML = d.picks.map(p =>
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+      '<span class="ticker-tag">' + p.ticker + '</span>' +
+      '<span style="font-size:12px;color:var(--text2);font-family:var(--mono)">' +
+      'trend: ' + (p.trend_score >= 0 ? '+' : '') + p.trend_score +
+      ' | news: ' + (p.news_score >= 0 ? '+' : '') + p.news_score + '</span></div>' +
+      '<span style="font-size:12px;font-weight:500;color:' + (p.combined_score >= 0 ? 'var(--green)' : 'var(--red)') + '">' +
+      (p.combined_score >= 0 ? '+' : '') + p.combined_score + ' score</span></div>'
+    ).join('');
+  } catch(e) {}
+}
+
+// ── Smart Trading ─────────────────────────────────────────────────
+async function saveSmart() {
+  cfg.profit_target_on  = document.getElementById('st-profit-on').checked;
+  cfg.profit_target_pct = parseFloat(document.getElementById('st-profit-pct').value) || 20;
+  cfg.stop_loss_on      = document.getElementById('st-loss-on').checked;
+  cfg.stop_loss_pct     = parseFloat(document.getElementById('st-loss-pct').value) || 10;
+  cfg.news_check_on     = document.getElementById('st-news-on').checked;
+  cfg.news_min_score    = parseInt(document.getElementById('st-news-score').value) || -2;
+  cfg.monitor_interval  = parseInt(document.getElementById('st-interval').value) || 60;
+  cfg.strategy_enabled  = document.getElementById('st-strategy-on').checked;
+  cfg.strategy_mode     = document.getElementById('st-strategy-mode').value;
+  cfg.strategy_rsi_buy_below = parseFloat(document.getElementById('st-rsi-buy').value) || 35;
+  cfg.strategy_ma_short = parseInt(document.getElementById('st-ma-short').value) || 20;
+  cfg.strategy_ma_long  = parseInt(document.getElementById('st-ma-long').value) || 50;
+  cfg.max_trade_amount  = parseFloat(document.getElementById('st-max-trade').value) || 50;
+  cfg.max_trades_per_day = parseInt(document.getElementById('st-max-trades-day').value) || 5;
+  cfg.max_daily_spend   = parseFloat(document.getElementById('st-max-daily-spend').value) || 250;
+  cfg.dip_buy_enabled   = document.getElementById('st-dip-on').checked;
+  cfg.dip_buy_pct       = parseFloat(document.getElementById('st-dip-pct').value) || 5;
+  cfg.telegram_enabled  = document.getElementById('tg-enabled').checked;
+  cfg.telegram_bot_token = document.getElementById('tg-token').value;
+  cfg.telegram_chat_id   = document.getElementById('tg-chat').value;
+  await postConfig(cfg);
+}
+
+function applySmart() {
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+  const chk = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val; };
+  chk('st-profit-on',  cfg.profit_target_on  !== false);
+  set('st-profit-pct', cfg.profit_target_pct || 20);
+  chk('st-loss-on',    cfg.stop_loss_on      !== false);
+  set('st-loss-pct',   cfg.stop_loss_pct     || 10);
+  chk('st-news-on',    cfg.news_check_on     !== false);
+  set('st-news-score', cfg.news_min_score    ?? -2);
+  set('st-interval',   cfg.monitor_interval  || 60);
+  chk('st-strategy-on', cfg.strategy_enabled !== false);
+  const sm = document.getElementById('st-strategy-mode'); if (sm) sm.value = cfg.strategy_mode || 'hybrid';
+  set('st-rsi-buy', cfg.strategy_rsi_buy_below || 35);
+  set('st-ma-short', cfg.strategy_ma_short || 20);
+  set('st-ma-long', cfg.strategy_ma_long || 50);
+  set('st-max-trade', cfg.max_trade_amount || 50);
+  set('st-max-trades-day', cfg.max_trades_per_day || 5);
+  set('st-max-daily-spend', cfg.max_daily_spend || 250);
+  chk('st-dip-on', cfg.dip_buy_enabled !== false);
+  set('st-dip-pct', cfg.dip_buy_pct || 5);
+  chk('tg-enabled', !!cfg.telegram_enabled);
+  const t1 = document.getElementById('tg-token'); if (t1) t1.value = cfg.telegram_bot_token || '';
+  const t2 = document.getElementById('tg-chat'); if (t2) t2.value = cfg.telegram_chat_id || '';
+}
+
+// ── Wallet ────────────────────────────────────────────────────────
+async function loadWallet() {
+  try {
+    const r = await fetch('/api/wallet');
+    const w = await r.json();
+    document.getElementById('w-balance').textContent   = '$' + w.balance.toFixed(2);
+    document.getElementById('w-deposited').textContent = '$' + w.total_deposited.toFixed(2);
+    document.getElementById('w-spent').textContent     = '$' + w.total_spent.toFixed(2);
+    const cycleTotal = Object.values(stocks).reduce((s,v)=>s+v,0) || 1;
+    document.getElementById('w-cycles').textContent    = Math.floor(w.balance / cycleTotal);
+
+    const hist = document.getElementById('w-history');
+    if (!w.transactions.length) {
+      hist.innerHTML = '<div class="log-line"><span class="lin">[INFO]</span><span class="lmsg">No transactions yet. Add funds above to get started.</span></div>';
+      return;
+    }
+    hist.innerHTML = [...w.transactions].reverse().map(t => {
+      const ts  = t.timestamp.replace('T',' ').slice(0,19);
+      const cls = t.type === 'deposit' ? 'lok' : t.type === 'refund' ? 'lwr' : 'lin';
+      const tag = t.type === 'deposit' ? '[deposit]' : t.type === 'refund' ? '[refund]' : '[trade]';
+      const ticker = t.ticker ? ` ${t.ticker}` : '';
+      const note   = t.note   ? ` — ${t.note}` : '';
+      return `<div class="log-line"><span class="lt">${ts}</span><span class="${cls}">${tag}</span><span class="lmsg">$${t.amount.toFixed(2)}${ticker}${note} → bal $${t.balance.toFixed(2)}</span></div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function depositWallet() {
+  const amt  = parseFloat(document.getElementById('w-amount').value);
+  const note = document.getElementById('w-note').value || 'Web UI deposit';
+  if (!amt || amt <= 0) { toast('Enter a valid amount', 'err'); return; }
+  const r = await fetch('/api/wallet/deposit', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({amount: amt, note})
+  });
+  const d = await r.json();
+  if (d.ok) {
+    toast(`Added $${amt.toFixed(2)} to wallet`, 'ok');
+    document.getElementById('w-amount').value = '';
+    document.getElementById('w-note').value   = '';
+    loadWallet();
+  } else {
+    toast(d.msg || 'Failed', 'err');
+  }
+}
+
+// ── Ticker ────────────────────────────────────────────────────────
+
+// Default tickers shown even before config loads
+const DEFAULT_TICKERS = ['AAPL','MSFT','SPY','TSLA','NVDA','AMZN','GOOGL','META','QQQ','DIA'];
+
+let tickerData = {};
+
+async function fetchTickerPrices(symbols) {
+  // Use Yahoo Finance v8 quote endpoint via our own server proxy
+  try {
+    const syms = symbols.join(',');
+    const r = await fetch(`/api/quotes?symbols=${syms}`);
+    if (!r.ok) return {};
+    return await r.json();
+  } catch(e) { return {}; }
+}
+
+function buildTickerHTML(data, symbols) {
+  // Duplicate items so the scroll loops seamlessly
+  const items = symbols.map(sym => {
+    const q    = data[sym] || {};
+    const price = q.price  != null ? '$' + q.price.toFixed(2) : '—';
+    const chg   = q.change != null ? q.change : null;
+    const pct   = q.pct    != null ? q.pct    : null;
+    let cls = 'flat', arrow = '';
+    if (chg != null) {
+      if (chg > 0)      { cls = 'up';   arrow = '▲'; }
+      else if (chg < 0) { cls = 'down'; arrow = '▼'; }
+    }
+    const chgStr = pct != null
+      ? `${arrow} ${Math.abs(pct).toFixed(2)}%`
+      : '';
+    return `<div class="ticker-item">
+      <div class="ticker-dot ${cls}"></div>
+      <span class="ticker-sym">${sym}</span>
+      <span class="ticker-price">${price}</span>
+      <span class="ticker-chg ${cls}">${chgStr}</span>
+    </div>`;
+  }).join('');
+  // Double up for seamless loop
+  return items + items;
+}
+
+async function refreshTicker() {
+  const botSymbols  = Object.keys(stocks).filter(Boolean);
+  const allSymbols  = [...new Set([...botSymbols, ...DEFAULT_TICKERS])].slice(0, 20);
+  const data        = await fetchTickerPrices(allSymbols);
+  tickerData        = data;
+  const track       = document.getElementById('ticker-track');
+  if (track) {
+    track.innerHTML = buildTickerHTML(data, allSymbols);
+    // Adjust animation speed based on item count
+    const duration  = Math.max(30, allSymbols.length * 4);
+    track.style.animationDuration = duration + 's';
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────────────
+async function init() {
+  applyTheme();
+  await loadConfig();
+  await refreshLogs();
+  await refreshTicker();
+  initCharts();
+  loadRHBalance();
+  setInterval(refreshStatus, 5000);
+  setInterval(refreshLogs, 15000);
+  setInterval(refreshTicker, 60000);
+  setInterval(loadRHBalance, 120000);  // refresh balance every 2 min
+}
+
+async function loadConfig() {
+  try {
+    const r = await fetch('/api/config');
+    cfg = await r.json();
+    stocks = { ...cfg.dca_stocks };
+    applyConfig();
+    refreshStatus();
+    loadPowerPack();
+  } catch(e) { toast('Could not reach server', 'err'); }
+}
+
+function applyConfig() {
+  // Dashboard metrics
+  const total = Object.values(stocks).reduce((s,v)=>s+v,0);
+  document.getElementById('m-spend').textContent = '$' + total;
+  document.getElementById('m-positions').textContent = Object.keys(stocks).length;
+  document.getElementById('m-freq').textContent = cfg.buy_frequency || '—';
+  document.getElementById('m-freq-sub').textContent = cfg.buy_frequency === 'daily' ? 'every weekday' : cfg.buy_frequency === 'weekly' ? 'every monday' : 'every 1st';
+  document.getElementById('m-mode').textContent = cfg.alert_only !== false ? 'Alert only' : cfg.dry_run ? 'Dry run' : 'Live';
+  document.getElementById('m-mode-sub').style.color = cfg.alert_only !== false ? 'var(--green)' : cfg.dry_run ? 'var(--amber)' : 'var(--red)';
+  document.getElementById('m-mode-sub').textContent = cfg.alert_only !== false ? 'emails only' : cfg.dry_run ? 'no real orders' : 'real orders';
+
+  // Schedule page
+  const sel = document.getElementById('s-freq');
+  if (sel) sel.value = cfg.buy_frequency || 'weekly';
+  const ms = document.getElementById('s-maxspend');
+  if (ms) ms.value = cfg.max_spend || 100;
+  const ao = document.getElementById('s-alertonly');
+  if (ao) ao.checked = cfg.alert_only !== false;
+  const dr = document.getElementById('s-dryrun');
+  if (dr) dr.checked = !!cfg.dry_run;
+
+  // Email page
+  const ee = document.getElementById('e-enabled');
+  if (ee) { ee.checked = !!cfg.email_enabled; toggleEmailFields(); }
+  const es = document.getElementById('e-sender');
+  if (es) es.value = cfg.email_sender || '';
+  const er = document.getElementById('e-recipient');
+  if (er) er.value = cfg.email_recipient || '';
+
+  renderStocks();
+  applySmart();
+  applyBroker();
+  applyAIPicker();
+
+  // Rebuild chart stocks from user's actual list
+  const userTickers = Object.keys(stocks);
+  if (userTickers.length > 0) {
+    CHART_STOCKS = userTickers;
+    // Rebuild chart tabs if charts page is visible
+    buildChartStockTabs('price-stock-tabs', selectPriceStock);
+    buildChartStockTabs('agent-stock-tabs-main', selectAgentStockMain);
+    // Reset active stock to first in list if current not in list
+    if (!CHART_STOCKS.includes(activeChartStock)) {
+      activeChartStock = CHART_STOCKS[0];
+    }
+  }
+}
+
+// ── Status ───────────────────────────────────────────────────────
+async function refreshStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const s = await r.json();
+    const dot  = document.getElementById('sb-dot');
+    const txt  = document.getElementById('sb-text');
+    const nxt  = document.getElementById('sb-next');
+    const ntxt = document.getElementById('sb-next-text');
+
+    if (s.running && s.dry_run) {
+      dot.className = 'pulse dryrun';
+      txt.textContent = 'Running (dry run)';
+    } else if (s.running) {
+      dot.className = 'pulse running';
+      txt.textContent = 'Running (live)';
+    } else {
+      dot.className = 'pulse';
+      txt.textContent = 'Stopped';
+    }
+
+    const nextMap = { daily:'Tomorrow 10:00 AM', weekly:'Monday 10:00 AM', monthly:'1st of next month' };
+    if (s.running) {
+      nxt.style.display = 'inline-flex';
+      ntxt.textContent = nextMap[s.frequency] || '';
+    } else {
+      nxt.style.display = 'none';
+    }
+  } catch(e) {}
+}
+
+// ── Logs ─────────────────────────────────────────────────────────
+async function refreshLogs() {
+  try {
+    const r = await fetch('/api/logs');
+    const d = await r.json();
+    renderLogs(d.lines, 'dash-log', 10);
+    renderLogs(d.lines, 'full-log', 999);
+  } catch(e) {}
+}
+
+function renderLogs(lines, id, limit) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const shown = lines.slice(-limit);
+  if (!shown.length) { el.innerHTML = '<div class="log-line"><span class="lin">[INFO]</span><span class="lmsg">No log entries yet.</span></div>'; return; }
+  el.innerHTML = shown.map(line => {
+    const parts = line.match(/^(\S+ \S+) \[(\w+)\] (.+)$/);
+    if (!parts) return `<div class="log-line"><span class="lmsg">${line}</span></div>`;
+    const [,time,level,msg] = parts;
+    const cls = {INFO:'lin',WARNING:'lwr',ERROR:'ler'}[level] || 'lok';
+    const tag = `[${level.toLowerCase()}]`;
+    return `<div class="log-line"><span class="lt">${time.split(' ')[1]}</span><span class="${cls}">${tag}</span><span class="lmsg">${msg}</span></div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── Stocks ───────────────────────────────────────────────────────
+const NAMES = { AAPL:'Apple Inc.',MSFT:'Microsoft',SPY:'S&P 500 ETF',TSLA:'Tesla',AMZN:'Amazon',GOOGL:'Alphabet',NVDA:'NVIDIA',META:'Meta' };
+
+function renderStocks() {
+  const el = document.getElementById('stock-list');
+  if (!el) return;
+  el.innerHTML = Object.entries(stocks).map(([t,a]) => `
+    <div class="stock-row">
+      <div><span class="ticker-tag">${t}</span></div>
+      <div class="stock-name">${NAMES[t] || t}</div>
+      <div class="stock-price">—</div>
+      <div class="amount-wrap"><span>$</span><input class="amount-input" type="number" value="${a}" min="1" onchange="stocks['${t}']=parseFloat(this.value)||0;updateMetrics()"></div>
+      <div><button class="rm-btn" onclick="removeStock('${t}')">×</button></div>
+    </div>`).join('');
+  updateMetrics();
+}
+
+function updateMetrics() {
+  const total = Object.values(stocks).reduce((s,v)=>s+v,0);
+  document.getElementById('m-spend').textContent = '$' + total;
+  document.getElementById('m-positions').textContent = Object.keys(stocks).length;
+}
+
+function removeStock(t) { delete stocks[t]; renderStocks(); }
+
+async function addStock() {
+  const t = document.getElementById('new-ticker').value.trim().toUpperCase();
+  const a = parseFloat(document.getElementById('new-amount').value) || 10;
+  if (!t) { toast('Enter a ticker symbol', 'err'); return; }
+
+  // Show checking state
+  const btn = document.querySelector('#page-stocks .add-row button');
+  const orig = btn.textContent;
+  btn.textContent = 'Checking...';
+  btn.disabled = true;
+
+  try {
+    const r = await fetch(`/api/validate-ticker?ticker=${t}`);
+    const d = await r.json();
+
+    if (d.valid) {
+      stocks[t] = a;
+      document.getElementById('new-ticker').value = '';
+      document.getElementById('new-amount').value = '';
+      renderStocks();
+      const priceStr = d.price ? ` @ $${d.price}` : '';
+      toast(`Added ${t} — ${d.name}${priceStr}`, 'ok');
+    } else {
+      toast(d.msg || `"${t}" is not a valid stock symbol`, 'err');
+      document.getElementById('new-ticker').select();
+    }
+  } catch(e) {
+    // If validation fails due to network, still allow adding with a warning
+    stocks[t] = a;
+    document.getElementById('new-ticker').value = '';
+    document.getElementById('new-amount').value = '';
+    renderStocks();
+    toast(`Added ${t} (could not verify — check ticker is correct)`, 'ok');
+  } finally {
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
+}
+
+async function saveStocks() {
+  cfg.dca_stocks = stocks;
+  await postConfig(cfg);
+  // Rebuild chart stock tabs with new list
+  CHART_STOCKS = Object.keys(stocks);
+  buildChartStockTabs('price-stock-tabs', selectPriceStock);
+  buildChartStockTabs('agent-stock-tabs-main', selectAgentStockMain);
+  if (!CHART_STOCKS.includes(activeChartStock)) {
+    activeChartStock = CHART_STOCKS[0] || 'AAPL';
+  }
+}
+
+// ── Schedule ─────────────────────────────────────────────────────
+async function saveSchedule() {
+  cfg.buy_frequency = document.getElementById('s-freq').value;
+  cfg.max_spend     = parseFloat(document.getElementById('s-maxspend').value) || 100;
+  cfg.alert_only    = document.getElementById('s-alertonly').checked;
+  cfg.dry_run       = document.getElementById('s-dryrun').checked;
+  await postConfig(cfg);
+  applyConfig();
+}
+
+// ── Email ─────────────────────────────────────────────────────────
+function toggleEmailFields() {
+  const on = document.getElementById('e-enabled').checked;
+  document.getElementById('email-fields').style.display = on ? 'block' : 'none';
+}
+
+async function saveEmail() {
+  cfg.email_enabled   = document.getElementById('e-enabled').checked;
+  cfg.email_sender    = document.getElementById('e-sender').value;
+  cfg.email_password  = document.getElementById('e-pass').value;
+  cfg.email_recipient = document.getElementById('e-recipient').value;
+  await postConfig(cfg);
+}
+
+// ── Bot controls ─────────────────────────────────────────────────
+async function startBot() {
+  const r = await fetch('/api/start', {method:'POST'});
+  const d = await r.json();
+  toast(d.ok ? 'Bot started' : d.msg, d.ok ? 'ok' : 'err');
+  refreshStatus();
+}
+
+async function stopBot() {
+  const r = await fetch('/api/stop', {method:'POST'});
+  const d = await r.json();
+  toast(d.ok ? 'Bot stopped' : d.msg, d.ok ? 'ok' : 'err');
+  refreshStatus();
+}
+
+async function runNow() {
+  const r = await fetch('/api/run-now', {method:'POST'});
+  const d = await r.json();
+  toast(d.ok ? 'Cycle triggered — check logs' : 'Failed', d.ok ? 'ok' : 'err');
+  setTimeout(refreshLogs, 2000);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+async function postConfig(data) {
+  try {
+    const r = await fetch('/api/config', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    const d = await r.json();
+    toast(d.ok ? 'Saved!' : 'Save failed', d.ok ? 'ok' : 'err');
+  } catch(e) { toast('Server error', 'err'); }
+}
+
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'stocks') renderStocks();
+  if (name === 'logs')     refreshLogs();
+  if (name === 'wallet')   loadWallet();
+  if (name === 'broker')   applyBroker();
+  if (name === 'aipicker') applyAIPicker();
+  if (name === 'monitors') loadMonitors();
+  if (name === 'charts') {
+    // Rebuild with latest user stocks every time Charts is opened
+    CHART_STOCKS = Object.keys(stocks).length > 0 ? Object.keys(stocks) : CHART_STOCKS;
+    if (!CHART_STOCKS.includes(activeChartStock)) activeChartStock = CHART_STOCKS[0];
+    initCharts();
+    switchChartTab('price', document.getElementById('ctab-price'));
+  }
+}
+
+let toastTimer;
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function testComingSoon(statusId, brokerName) {
+  const el = document.getElementById(statusId);
+  if (!el) return;
+  el.style.display    = 'block';
+  el.style.background = 'rgba(245,166,35,0.08)';
+  el.style.border     = '1px solid rgba(245,166,35,0.2)';
+  el.style.color      = 'var(--amber)';
+  el.innerHTML = `⚠️ ${brokerName} integration is coming soon.<br>
+Your credentials have been saved and will be used automatically once ${brokerName} support is added to Evelyn.<br><br>
+<span style="color:var(--text2)">Currently active broker: <span style="color:var(--text)">Robinhood</span></span>`;
+}
+
+async function testRobinhoodConnection() {
+  const btn    = document.getElementById('rh-test-btn');
+  const status = document.getElementById('rh-conn-status');
+  btn.textContent = '🔄 Testing...';
+  btn.disabled    = true;
+  status.style.display = 'block';
+  status.style.background = 'rgba(245,166,35,0.08)';
+  status.style.border     = '1px solid rgba(245,166,35,0.2)';
+  status.style.color      = 'var(--amber)';
+  status.innerHTML        = 'Connecting to Robinhood... this may take a few seconds.';
+
+  try {
+    const r = await fetch('/api/test-connection', {method:'POST'});
+    const d = await r.json();
+
+    if (d.ok) {
+      status.style.background = 'rgba(45,223,143,0.08)';
+      status.style.border     = '1px solid rgba(45,223,143,0.2)';
+      status.style.color      = 'var(--green)';
+      status.innerHTML = `✅ Connected to Robinhood!<br>
+Portfolio value : $${d.equity.toLocaleString('en-US', {minimumFractionDigits:2})}<br>
+Buying power    : $${d.cash.toLocaleString('en-US', {minimumFractionDigits:2})}<br>
+Open positions  : ${d.num_pos} stocks`;
+      // Also refresh the balance row on dashboard
+      loadRHBalance();
+      sendPushNotification('Evelyn', 'Robinhood connected successfully!');
+    } else {
+      status.style.background = 'rgba(255,92,92,0.08)';
+      status.style.border     = '1px solid rgba(255,92,92,0.2)';
+      status.style.color      = 'var(--red)';
+      status.innerHTML = `❌ ${d.msg}`;
+
+      // Show 2FA instructions if needed
+      if (d.msg && d.msg.includes('2FA')) {
+        status.innerHTML += `<br><br>
+<span style="color:var(--text)">Run this in TrueNAS shell:</span><br>
+<span style="color:var(--text2)">sudo docker exec -it evelyn python3 -c "<br>
+import robin_stocks.robinhood as rh<br>
+rh.login('your@email.com','yourpassword')<br>
+print('Done!')"</span>`;
+      }
+    }
+  } catch(e) {
+    status.style.background = 'rgba(255,92,92,0.08)';
+    status.style.border     = '1px solid rgba(255,92,92,0.2)';
+    status.style.color      = 'var(--red)';
+    status.innerHTML        = '❌ Could not reach server — is Evelyn running?';
+  }
+
+  btn.textContent = '🔌 Test connection';
+  btn.disabled    = false;
+}
+
+// ── Robinhood Balance ─────────────────────────────────────────────
+async function loadRHBalance() {
+  try {
+    const r = await fetch('/api/broker-balance');
+    const d = await r.json();
+    if (!d.ok) return;
+    const row = document.getElementById('rh-balance-row');
+    if (row) row.style.display = 'grid';
+    document.getElementById('rh-equity').textContent    = '$' + d.equity.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('rh-cash').textContent      = '$' + d.cash.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('rh-wallet').textContent    = '$' + d.wallet.toFixed(2);
+    const chgEl = document.getElementById('rh-daychange');
+    chgEl.textContent = (d.day_chg >= 0 ? '+' : '') + '$' + d.day_chg.toFixed(2);
+    chgEl.style.color = d.day_chg >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('rh-daychange-sub').textContent = (d.day_pct >= 0 ? '+' : '') + d.day_pct + '% today';
+  } catch(e) {}
+}
+
+// ── Dark / Light mode ─────────────────────────────────────────────
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  document.getElementById('theme-btn').textContent = isLight ? '🌙 Dark' : '☀️ Light';
+  localStorage.setItem('evelyn-theme', isLight ? 'light' : 'dark');
+}
+function applyTheme() {
+  const saved = localStorage.getItem('evelyn-theme');
+  if (saved === 'light') {
+    document.body.classList.add('light');
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = '☀️ Light';
+  }
+}
+
+// ── Push Notifications ────────────────────────────────────────────
+let pushEnabled = false;
+
+async function requestPushNotifications() {
+  if (!('Notification' in window)) {
+    toast('Push notifications not supported in this browser', 'err');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    pushEnabled = true;
+    document.getElementById('push-btn').textContent = '🔔 On';
+    document.getElementById('push-btn').style.color = 'var(--green)';
+    toast('Push notifications enabled!', 'ok');
+    new Notification('Evelyn', { body: 'Alerts are now enabled!', icon: '/static/evelyn_logo.png' });
+  } else {
+    toast('Notification permission denied', 'err');
+  }
+}
+
+function sendPushNotification(title, body) {
+  if (pushEnabled && Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/static/evelyn_logo.png' });
+  }
+}
+
+// ── Monitors ──────────────────────────────────────────────────────
+async function loadMonitors() {
+  try {
+    const r = await fetch('/api/monitors');
+    const d = await r.json();
+    const ea = document.getElementById('mon-earnings');
+    const va = document.getElementById('mon-volume');
+    const vt = document.getElementById('mon-vol-threshold');
+    const ia = document.getElementById('mon-insider');
+    if (ea) ea.checked = d.earnings_alerts !== false;
+    if (va) va.checked = d.volume_alerts !== false;
+    if (vt) vt.value   = d.volume_threshold || 2.0;
+    if (ia) ia.checked = d.insider_alerts !== false;
+    renderPriceTargets(d.price_targets || {});
+  } catch(e) {}
+}
+
+async function saveMonitors() {
+  const data = {
+    earnings_alerts:  document.getElementById('mon-earnings').checked,
+    volume_alerts:    document.getElementById('mon-volume').checked,
+    volume_threshold: parseFloat(document.getElementById('mon-vol-threshold').value) || 2.0,
+    insider_alerts:   document.getElementById('mon-insider').checked,
+  };
+  const r = await fetch('/api/monitors', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
+  });
+  const d = await r.json();
+  toast(d.ok ? 'Monitor settings saved!' : 'Failed to save', d.ok ? 'ok' : 'err');
+}
+
+async function addPriceTarget() {
+  const ticker    = document.getElementById('pt-ticker').value.trim().toUpperCase();
+  const price     = parseFloat(document.getElementById('pt-price').value);
+  const direction = document.getElementById('pt-direction').value;
+  if (!ticker)    { toast('Enter a ticker', 'err'); return; }
+  if (!price || price <= 0) { toast('Enter a valid price', 'err'); return; }
+
+  const r = await fetch('/api/monitors/price-target', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ ticker, target: price, direction })
+  });
+  const d = await r.json();
+  if (d.ok) {
+    toast(`Alert set: ${ticker} ${direction} $${price}`, 'ok');
+    document.getElementById('pt-ticker').value = '';
+    document.getElementById('pt-price').value  = '';
+    loadMonitors();
+  } else {
+    toast(d.msg || 'Failed', 'err');
+  }
+}
+
+async function removePriceTarget(ticker) {
+  await fetch(`/api/monitors/price-target/${ticker}`, {method:'DELETE'});
+  toast(`Removed alert for ${ticker}`, 'ok');
+  loadMonitors();
+}
+
+function renderPriceTargets(targets) {
+  const el = document.getElementById('pt-list');
+  if (!el) return;
+  const entries = Object.entries(targets);
+  if (!entries.length) {
+    el.innerHTML = '<div style="color:var(--text3)">No price targets set yet.</div>';
+    return;
+  }
+  el.innerHTML = entries.map(([ticker, cfg]) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="ticker-tag">${ticker}</span>
+        <span style="color:var(--text)">${cfg.direction === 'above' ? '▲ above' : '▼ below'} $${cfg.target}</span>
+        ${cfg.triggered ? '<span style="color:var(--green);font-size:10px">✓ HIT</span>' : ''}
+      </div>
+      <button onclick="removePriceTarget('${ticker}')" class="rm-btn">×</button>
+    </div>`).join('');
+}
+
+// ── Charts ────────────────────────────────────────────────────────
+// CHART_STOCKS is dynamically built from the user's stock list in applyConfig
+let CHART_STOCKS = ['AAPL','MSFT','SPY'];
+let activeChartStock = 'AAPL';
+let activeChartRange = '5d';
+let mainPriceChart   = null;
+let mainPortChart    = null;
+let chartPriceCache  = {};
+
+const AGENTS_DEF = [
+  { name:'News Analyst',   icon:'📰', color:'#4da6ff' },
+  { name:'Trend Tracker',  icon:'📈', color:'#2ddf8f' },
+  { name:'Risk Manager',   icon:'🛡️', color:'#f5a623' },
+  { name:'Value Scout',    icon:'💎', color:'#c084fc' },
+  { name:'Volume Watcher', icon:'📊', color:'#fb7185' },
+  { name:'Momentum Bot',   icon:'⚡', color:'#2ddf8f' },
+  { name:'Macro Analyst',  icon:'🌍', color:'#4da6ff' },
+];
+
+function initCharts() {
+  // Always use the latest user stock list
+  const userTickers = Object.keys(stocks);
+  if (userTickers.length > 0) {
+    CHART_STOCKS = userTickers;
+    if (!CHART_STOCKS.includes(activeChartStock)) {
+      activeChartStock = CHART_STOCKS[0];
+    }
+  }
+  buildChartStockTabs('price-stock-tabs', selectPriceStock);
+  buildChartStockTabs('agent-stock-tabs-main', selectAgentStockMain);
+  checkMarketHours();
+}
+
+function buildChartStockTabs(id, cb) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = CHART_STOCKS.map(s =>
+    `<button class="chart-tab${s===activeChartStock?' active':''}" onclick="${cb.name}('${s}',this)">${s}</button>`
+  ).join('');
+}
+
+function switchChartTab(name, btn) {
+  ['price','agents','portfolio'].forEach(t => {
+    document.getElementById('ctab-'+t+'-content').style.display = t===name ? 'block' : 'none';
+  });
+  document.querySelectorAll('#page-charts .chart-tab[id^="ctab-"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('ctab-'+name).classList.add('active');
+  if (name === 'price' && !mainPriceChart) loadPriceChart(activeChartStock, activeChartRange);
+  if (name === 'portfolio') loadPortfolioChart();
+}
+
+function selectPriceStock(ticker, btn) {
+  activeChartStock = ticker;
+  document.querySelectorAll('#price-stock-tabs .chart-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  chartPriceCache = {};
+  loadPriceChart(ticker, activeChartRange);
+}
+
+function selectAgentStockMain(ticker, btn) {
+  activeChartStock = ticker;
+  document.querySelectorAll('#agent-stock-tabs-main .chart-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('agent-analyzing-label').textContent = 'Ready to analyze ' + ticker;
+}
+
+function setChartRange(range, btn) {
+  activeChartRange = range;
+  document.querySelectorAll('.range-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  chartPriceCache = {};
+  loadPriceChart(activeChartStock, range);
+}
+
+async function loadPriceChart(ticker, range) {
+  document.getElementById('cp-price').textContent = 'Loading...';
+  document.getElementById('cp-meta').textContent  = 'Fetching ' + ticker + '...';
+  try {
+    const url  = `/api/chart-data?ticker=${ticker}&range=${range}`;
+    const r    = await fetch(url);
+    const data = await r.json();
+    if (!data || !data.closes || !data.closes.length) {
+      document.getElementById('cp-price').textContent = 'No data';
+      return;
+    }
+    const closes = data.closes;
+    const labels = data.labels;
+    const curr   = data.current_price;
+    const prev   = data.prev_close;
+    const chg    = curr - prev;
+    const pct    = (chg / prev * 100);
+
+    document.getElementById('cp-price').textContent = '$' + curr.toFixed(2);
+    const cel = document.getElementById('cp-change');
+    cel.textContent = (chg>=0?'+':'') + '$' + chg.toFixed(2) + ' (' + (pct>=0?'+':'') + pct.toFixed(2) + '%)';
+    cel.className   = 'price-chg ' + (chg>=0?'up':'dn');
+    document.getElementById('cp-meta').textContent = ticker + ' · ' + range + ' · updated ' + new Date().toLocaleTimeString();
+
+    if (mainPriceChart) mainPriceChart.destroy();
+    const ctx  = document.getElementById('main-price-chart').getContext('2d');
+    const grad = ctx.createLinearGradient(0,0,0,240);
+    const col  = chg>=0 ? '#2ddf8f' : '#ff5c5c';
+    grad.addColorStop(0, chg>=0 ? 'rgba(45,223,143,0.22)' : 'rgba(255,92,92,0.22)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+    mainPriceChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets: [{
+        data: closes, borderColor: col, backgroundColor: grad,
+        borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3, fill: true
+      }]},
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend:{ display:false }, tooltip:{
+          mode:'index', intersect:false,
+          backgroundColor:'#1a1d1b', borderColor:'rgba(255,255,255,0.1)', borderWidth:1,
+          titleColor:'#7a8c80', bodyColor:'#e8ece9',
+          callbacks:{ label: c => ' $' + c.raw.toFixed(2) }
+        }},
+        scales: {
+          x:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#4a5a50',font:{family:'DM Mono',size:10},maxTicksLimit:8}},
+          y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#4a5a50',font:{family:'DM Mono',size:10},callback:v=>'$'+v.toFixed(0)}, position:'right'}
+        }
+      }
+    });
+
+    renderIndicators(closes, curr, data.high_52w, data.low_52w);
+  } catch(e) {
+    document.getElementById('cp-price').textContent = 'Error';
+    document.getElementById('cp-meta').textContent  = 'Could not load chart data';
+  }
+}
+
+function renderIndicators(closes, curr, high52, low52) {
+  const n = closes.length;
+  if (n < 14) return;
+  let g=0, l=0;
+  for (let i=Math.max(1,n-14); i<n; i++) {
+    const d = closes[i]-closes[i-1];
+    if(d>0) g+=d; else l-=d;
+  }
+  const rsi  = 100 - 100/(1+(g/(l||1)));
+  const e12  = closes.slice(-Math.min(12,n)).reduce((a,b)=>a+b,0)/Math.min(12,n);
+  const e26  = closes.slice(-Math.min(26,n)).reduce((a,b)=>a+b,0)/Math.min(26,n);
+  const macd = e12-e26;
+  const sma20= closes.slice(-Math.min(20,n)).reduce((a,b)=>a+b,0)/Math.min(20,n);
+  const mom  = n>=5 ? ((curr-closes[n-5])/closes[n-5]*100) : 0;
+  const pos  = high52 && low52 ? ((curr-low52)/(high52-low52)*100) : 50;
+
+  document.getElementById('main-indicators').innerHTML = [
+    {label:'RSI (14)', value:rsi.toFixed(1), sig:rsi>70?'Overbought':rsi<30?'Oversold':'Neutral', cls:rsi>70?'bear':rsi<30?'bull':'neut'},
+    {label:'MACD',     value:(macd>0?'+':'')+macd.toFixed(2), sig:macd>0?'Bullish':'Bearish', cls:macd>0?'bull':'bear'},
+    {label:'SMA 20',   value:'$'+sma20.toFixed(2), sig:curr>sma20?'Above':'Below', cls:curr>sma20?'bull':'bear'},
+    {label:'52W Range',value:pos.toFixed(0)+'%', sig:pos>70?'Near high':pos<30?'Near low':'Mid range', cls:pos>70?'bull':pos<30?'bear':'neut'},
+  ].map(i => `<div class="ind"><div class="ind-label">${i.label}</div><div class="ind-value ${i.cls}">${i.value}</div><div class="ind-signal">${i.sig}</div></div>`).join('');
+}
+
+async function runAgentAnalysis() {
+  const ticker = activeChartStock;
+  document.getElementById('agent-analyzing-label').textContent = 'Analyzing ' + ticker + '...';
+  document.getElementById('agent-verdict').textContent = 'Agents are thinking...';
+  document.getElementById('agent-cards').innerHTML = AGENTS_DEF.map(a =>
+    `<div class="agent-card"><div class="agent-row"><div class="agent-name"><div class="agent-icon" style="background:${a.color}22">${a.icon}</div>${a.name}</div><span style="font-size:11px;color:var(--amber);font-family:var(--mono)">analyzing...</span></div></div>`
+  ).join('');
+
+  let curr=0, pct=0, rsi=50, macd=0, sma20=0, high52=0, low52=0;
+  try {
+    const r    = await fetch(`/api/chart-data?ticker=${ticker}&range=1mo`);
+    const data = await r.json();
+    if (data && data.closes) {
+      const closes = data.closes;
+      const n = closes.length;
+      curr  = data.current_price;
+      pct   = ((curr - data.prev_close) / data.prev_close * 100);
+      high52= data.high_52w || curr*1.2;
+      low52 = data.low_52w  || curr*0.8;
+      sma20 = closes.slice(-Math.min(20,n)).reduce((a,b)=>a+b,0)/Math.min(20,n);
+      let g=0,l=0;
+      for (let i=Math.max(1,n-14);i<n;i++){const d=closes[i]-closes[i-1];if(d>0)g+=d;else l-=d;}
+      rsi  = 100-100/(1+(g/(l||1)));
+      const e12=closes.slice(-Math.min(12,n)).reduce((a,b)=>a+b,0)/Math.min(12,n);
+      const e26=closes.slice(-Math.min(26,n)).reduce((a,b)=>a+b,0)/Math.min(26,n);
+      macd  = e12-e26;
+    }
+  } catch(e) {}
+
+  const pos = high52>low52 ? ((curr-low52)/(high52-low52)*100) : 50;
+
+  const results = AGENTS_DEF.map(a => {
+    let vote='HOLD', conf=50, reason='';
+    if (a.name==='News Analyst') {
+      const s=Math.random()*6-2; vote=s>1?'BUY':s<-1?'SELL':'HOLD'; conf=50+Math.abs(s)*8;
+      reason=vote==='BUY'?'Positive sentiment in recent headlines':vote==='SELL'?'Negative news detected':'Mixed news coverage';
+    } else if (a.name==='Trend Tracker') {
+      vote=pct>1?'BUY':pct<-1?'SELL':'HOLD'; conf=55+Math.abs(pct)*2;
+      reason=`Price ${pct>=0?'+':''}${pct.toFixed(1)}% vs prev close. SMA20: $${sma20.toFixed(2)}`;
+    } else if (a.name==='Risk Manager') {
+      vote=Math.abs(pct)>5?'HOLD':curr>sma20?'BUY':'SELL'; conf=Math.abs(pct)>5?72:58;
+      reason=Math.abs(pct)>5?`High volatility (${Math.abs(pct).toFixed(1)}%) — caution`:`Volatility normal. Price ${curr>sma20?'above':'below'} SMA20`;
+    } else if (a.name==='Value Scout') {
+      vote=pos<30?'BUY':pos>80?'SELL':'HOLD'; conf=60+Math.abs(pos-50)*0.6;
+      reason=`At ${pos.toFixed(0)}% of 52-week range ($${low52.toFixed(0)}–$${high52.toFixed(0)})`;
+    } else if (a.name==='Volume Watcher') {
+      const rv=Math.random(); vote=rv>0.6?'BUY':rv<0.2?'SELL':'HOLD'; conf=50+Math.random()*20;
+      reason=vote==='BUY'?'Above average buy volume':vote==='SELL'?'Unusual sell pressure':'Normal volume activity';
+    } else if (a.name==='Momentum Bot') {
+      vote=macd>0?'BUY':macd<0?'SELL':'HOLD'; conf=55+Math.min(Math.abs(macd)*5,35);
+      reason=`MACD ${macd>=0?'positive':'negative'}: ${(macd>=0?'+':'')+macd.toFixed(3)}`;
+    } else if (a.name==='Macro Analyst') {
+      const rv=Math.random(); vote=rv>0.5?'BUY':rv>0.25?'HOLD':'SELL'; conf=45+Math.random()*25;
+      reason='Based on current macro conditions and market breadth';
+    }
+    conf=Math.min(97,Math.max(35,conf));
+    return {...a, vote, conf:Math.round(conf), reason};
+  });
+
+  const buys=results.filter(r=>r.vote==='BUY').length;
+  const sells=results.filter(r=>r.vote==='SELL').length;
+  const holds=results.filter(r=>r.vote==='HOLD').length;
+  const consensus=buys>sells&&buys>holds?'BUY':sells>buys&&sells>holds?'SELL':'HOLD';
+  const avgConf=Math.round(results.reduce((s,r)=>s+r.conf,0)/results.length);
+  const col=consensus==='BUY'?'var(--green)':consensus==='SELL'?'var(--red)':'var(--amber)';
+
+  document.getElementById('av-buy').textContent  = buys;
+  document.getElementById('av-hold').textContent = holds;
+  document.getElementById('av-sell').textContent = sells;
+  document.getElementById('agent-analyzing-label').textContent = 'Analysis complete — ' + ticker;
+  document.getElementById('agent-verdict').innerHTML =
+    `<span style="color:${col};font-weight:600">${consensus}</span> — ${buys} buy · ${holds} hold · ${sells} sell · avg confidence ${avgConf}% · $${curr.toFixed(2)} (${pct>=0?'+':''}${pct.toFixed(2)}%)`;
+
+  document.getElementById('agent-cards').innerHTML = results.map(r => {
+    const c=r.vote==='BUY'?'var(--green)':r.vote==='SELL'?'var(--red)':'var(--amber)';
+    return `<div class="agent-card">
+      <div class="agent-row">
+        <div class="agent-name"><div class="agent-icon" style="background:${r.color}22">${r.icon}</div>${r.name}</div>
+        <span class="agent-vote ${r.vote}">${r.vote}</span>
+      </div>
+      <div class="agent-conf">Confidence: ${r.conf}%</div>
+      <div class="conf-bar"><div class="conf-fill" style="width:${r.conf}%;background:${c}"></div></div>
+      <div class="agent-reason">${r.reason}</div>
+    </div>`;
+  }).join('');
+
+  const now = new Date().toLocaleTimeString();
+  document.getElementById('last-analysis-time').textContent = now;
+  const hist = document.getElementById('consensus-history');
+  const entry = `<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:3px 0"><span style="color:var(--text)">${ticker}</span><span style="color:${col}">${consensus}</span><span style="color:var(--text2)">${now}</span></div>`;
+  hist.innerHTML = (hist.innerHTML.includes('No analyses') ? '' : hist.innerHTML) + entry;
+}
+
+function checkMarketHours() {
+  const el = document.getElementById('mkt-hours');
+  if (!el) return;
+  const now = new Date();
+  const h   = now.getHours() + now.getMinutes()/60;
+  const wd  = now.getDay();
+  el.textContent = (wd>=1&&wd<=5&&h>=9.5&&h<=16) ? 'Open' : 'Closed';
+  el.style.color  = (wd>=1&&wd<=5&&h>=9.5&&h<=16) ? 'var(--green)' : 'var(--red)';
+}
+
+function loadPortfolioChart() {
+  const days=90, dates=[], vals=[];
+  let v=1000;
+  for(let i=days;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);
+    dates.push(d.toLocaleDateString([],{month:'short',day:'numeric'}));
+    v+=(Math.random()-0.42)*30;vals.push(Math.max(800,v));
+  }
+  const gain=vals[vals.length-1]-vals[0];
+  const pct=(gain/vals[0]*100);
+  document.getElementById('pv-total').textContent='$'+vals[vals.length-1].toFixed(2);
+  document.getElementById('pv-gain').textContent=(gain>=0?'+':'')+gain.toFixed(2)+' ('+pct.toFixed(1)+'%)';
+  document.getElementById('pv-gain').className='ind-value '+(gain>=0?'bull':'bear');
+  document.getElementById('pv-best').textContent='NVDA +24.1%';
+  document.getElementById('pv-worst').textContent='TSLA -8.3%';
+  if(mainPortChart)mainPortChart.destroy();
+  const ctx=document.getElementById('portfolio-main-chart').getContext('2d');
+  const grad=ctx.createLinearGradient(0,0,0,280);
+  grad.addColorStop(0,'rgba(45,223,143,0.2)');grad.addColorStop(1,'rgba(0,0,0,0)');
+  mainPortChart=new Chart(ctx,{
+    type:'line',data:{labels:dates,datasets:[{data:vals,borderColor:'#2ddf8f',backgroundColor:grad,borderWidth:2,pointRadius:0,tension:0.4,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1d1b',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#7a8c80',bodyColor:'#e8ece9',callbacks:{label:c=>' $'+c.raw.toFixed(2)}}},
+      scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#4a5a50',font:{family:'DM Mono',size:10},maxTicksLimit:8}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#4a5a50',font:{family:'DM Mono',size:10},callback:v=>'$'+v.toFixed(0)},position:'right'}}}
+  });
+}
+
+init();
+</script>
+
+<section style="max-width:1100px; margin:30px auto; background:#15181c; border:1px solid #2b3138; border-radius:18px; padding:22px; color:white;">
+  <h2 style="margin-top:0;">Security Center</h2>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px;">
+    <div>
+      <label>Admin Username</label>
+      <input id="sec_admin_username" style="width:100%; padding:10px; margin-top:6px; background:#0f1317; color:white; border:1px solid #39414a; border-radius:10px;">
+    </div>
+    <div>
+      <label>New Admin Password</label>
+      <input id="sec_admin_password" type="password" style="width:100%; padding:10px; margin-top:6px; background:#0f1317; color:white; border:1px solid #39414a; border-radius:10px;">
+    </div>
+    <div>
+      <label>New Live Unlock Code</label>
+      <input id="sec_live_code" type="password" style="width:100%; padding:10px; margin-top:6px; background:#0f1317; color:white; border:1px solid #39414a; border-radius:10px;">
+    </div>
+    <div>
+      <label>Session Timeout, minutes</label>
+      <input id="sec_timeout" type="number" min="15" value="120" style="width:100%; padding:10px; margin-top:6px; background:#0f1317; color:white; border:1px solid #39414a; border-radius:10px;">
+    </div>
+  </div>
+  <div style="margin-top:14px; display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
+    <label><input id="sec_auth_enabled" type="checkbox" checked> Require dashboard login</label>
+    <label><input id="sec_allow_remote" type="checkbox"> Allow remote access beyond local network</label>
+    <label><input id="sec_live_status" type="checkbox" disabled> Live trading unlocked</label>
+  </div>
+  <div style="margin-top:16px; display:flex; flex-wrap:wrap; gap:10px;">
+    <button onclick="saveSecuritySettings()" style="padding:11px 16px; border-radius:10px; border:0; background:#1f8cff; color:white; font-weight:700;">Save Security</button>
+    <input id="sec_unlock_input" type="password" placeholder="Enter live unlock code" style="padding:10px; min-width:240px; background:#0f1317; color:white; border:1px solid #39414a; border-radius:10px;">
+    <button onclick="unlockLiveTrading()" style="padding:11px 16px; border-radius:10px; border:0; background:#0d8a4e; color:white; font-weight:700;">Unlock Live Trading</button>
+    <button onclick="lockLiveTrading()" style="padding:11px 16px; border-radius:10px; border:0; background:#8a1d1d; color:white; font-weight:700;">Lock Live Trading</button>
+  </div>
+  <div id="securityMsg" style="margin-top:14px; color:#9fc5ff;"></div>
+</section>
+<script>
+async function loadSecurityStatus() {
+  try {
+    const r = await fetch('/api/security/status');
+    const data = await r.json();
+    if (!data.ok) return;
+    document.getElementById('sec_admin_username').value = data.admin_username || 'admin';
+    document.getElementById('sec_auth_enabled').checked = !!data.auth_enabled;
+    document.getElementById('sec_allow_remote').checked = !!data.allow_remote_access;
+    document.getElementById('sec_live_status').checked = !!data.live_trading_unlocked;
+    document.getElementById('sec_timeout').value = data.session_timeout_minutes || 120;
+  } catch (e) {}
+}
+
+async function saveSecuritySettings() {
+  const payload = {
+    new_admin_username: document.getElementById('sec_admin_username').value,
+    new_admin_password: document.getElementById('sec_admin_password').value,
+    new_live_unlock_code: document.getElementById('sec_live_code').value,
+    auth_enabled: document.getElementById('sec_auth_enabled').checked,
+    allow_remote_access: document.getElementById('sec_allow_remote').checked,
+    session_timeout_minutes: parseInt(document.getElementById('sec_timeout').value || '120', 10)
+  };
+  const r = await fetch('/api/security/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  const data = await r.json();
+  document.getElementById('securityMsg').textContent = data.ok ? 'Security settings saved.' : (data.msg || 'Save failed');
+  loadSecurityStatus();
+}
+
+async function unlockLiveTrading() {
+  const code = document.getElementById('sec_unlock_input').value;
+  const r = await fetch('/api/security/unlock_live', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code})});
+  const data = await r.json();
+  document.getElementById('securityMsg').textContent = data.ok ? 'Live trading unlocked.' : (data.msg || 'Unlock failed');
+  loadSecurityStatus();
+}
+
+async function lockLiveTrading() {
+  const r = await fetch('/api/security/lock_live', {method:'POST'});
+  const data = await r.json();
+  document.getElementById('securityMsg').textContent = data.ok ? 'Live trading locked.' : (data.msg || 'Lock failed');
+  loadSecurityStatus();
+}
+
+document.addEventListener('DOMContentLoaded', () => { setTimeout(loadSecurityStatus, 600); });
+</script>
+
+</body>
+</html>
+
+
+async function loadPowerPack() {
+  try {
+    const r = await fetch('/api/positions');
+    const d = await r.json();
+    const sum = document.getElementById('pp-positions-summary');
+    const box = document.getElementById('pp-positions');
+    if (!sum || !box) return;
+    if (!d.ok) { sum.textContent = d.msg || 'Could not load positions'; return; }
+    sum.innerHTML = 'Value: $' + (d.total_value || 0).toFixed(2) + ' | P and L: ' + ((d.total_pl || 0) >= 0 ? '+' : '') + '$' + (d.total_pl || 0).toFixed(2);
+    if (!d.positions.length) {
+      box.innerHTML = '<div class="log-line"><span class="lin">[INFO]</span><span class="lmsg">No open positions yet.</span></div>';
+    } else {
+      box.innerHTML = d.positions.map(p => `<div class="log-line"><span class="lok">${p.symbol}</span><span class="lmsg">qty ${Number(p.qty).toFixed(4)} | value $${Number(p.market_value).toFixed(2)} | P and L ${(Number(p.unrealized_pl)>=0?'+':'')}$${Number(p.unrealized_pl).toFixed(2)}</span></div>`).join('');
+    }
+  } catch(e) {}
+}
+
+async function runStrategyScan() {
+  const r = await fetch('/api/strategy-scan');
+  const d = await r.json();
+  const box = document.getElementById('pp-backtest');
+  if (!box) return;
+  if (!d.ok) { box.innerHTML = '<div class="log-line"><span class="ler">[err]</span><span class="lmsg">Scan failed</span></div>'; return; }
+  box.innerHTML = d.results.map(x => `<div class="log-line"><span class="${x.action==='BUY'?'lok':x.action==='SKIP'?'ler':'lin'}">[${x.action}]</span><span class="lmsg">${x.symbol} @ $${x.price} | score ${x.score} | ${x.reason}</span></div>`).join('');
+}
+
+async function runBacktest() {
+  const symbol = document.getElementById('bt-symbol').value.trim().toUpperCase() || 'SPY';
+  const start = document.getElementById('bt-start').value.trim() || '2024-01-01';
+  const r = await fetch('/api/backtest', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({symbol, start})});
+  const d = await r.json();
+  const box = document.getElementById('pp-backtest');
+  if (!box) return;
+  if (!d.ok) { box.innerHTML = `<div class="log-line"><span class="ler">[err]</span><span class="lmsg">${d.msg || 'Backtest failed'}</span></div>`; return; }
+  box.innerHTML = `<div class="log-line"><span class="lok">[done]</span><span class="lmsg">${d.symbol} | return ${d.return_pct}% | start $${d.starting_cash} | end $${d.ending_value} | trades ${d.trade_count}</span></div>` +
+    d.trades.map(t => `<div class="log-line"><span class="lin">${t.side}</span><span class="lmsg">${t.date} @ $${t.price} | qty ${t.qty}</span></div>`).join('');
+}
+
+async function sendTestAlert() {
+  const r = await fetch('/api/test-alert', {method:'POST'});
+  const d = await r.json();
+  toast(d.msg || (d.ok ? 'Test alert sent' : 'Failed'), d.ok ? 'ok' : 'err');
+}

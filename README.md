@@ -1,134 +1,124 @@
-# Evelyn-AI Bot
-Self hosted AI trading assistant with dashboard, portfolio reports, and automation
+Public GitHub safe build
 
+Use .env.example as a guide and keep real secrets only on your server.
 
-# Evelyn AI Bot
+# Robinhood DCA Bot — Web UI Setup
 
-Self hosted AI powered trading assistant with dashboard, portfolio analysis, and automation
-
----
-
-## Overview
-
-Evelyn is a self hosted AI driven trading assistant designed to help you analyze stocks, monitor portfolios, and generate intelligent reports without relying on external trading platforms.
-
-It runs locally on your machine or server, giving you full control, privacy, and flexibility.
+## Files
+- `robinhood_dca_bot.py` — The trading bot
+- `server.py`            — Flask web server (serves the UI + API)
+- `templates/index.html` — Dashboard web UI
+- `requirements.txt`     — Python dependencies
+- `Dockerfile`           — Container build
+- `docker-compose.yml`   — TrueNAS app definition
 
 ---
 
-## Key Features
+## Deploying on TrueNAS SCALE
 
-AI Powered Stock Analysis  
-Evaluate stocks using trend signals, momentum, and AI driven insights
+### Step 1 — Copy files to your pool
+Put all files in a folder on your TrueNAS pool:
+  /mnt/tank/dca-bot/
 
-Portfolio Report System  
-Monitor the stocks you own and generate structured reports with clear verdicts and risk signals
+### Step 2 — Edit docker-compose.yml
+Change 'your-pool' to your actual pool name.
+Set your timezone (TZ=America/New_York etc.)
 
-Automated Email Reports  
-Receive scheduled summaries directly to your inbox
+### Step 3 — Deploy via SSH
+  cd /mnt/tank/dca-bot
+  docker compose up -d --build
 
-Web Dashboard  
-Clean UI for managing stocks and viewing reports
+### Step 4 — Open the dashboard
+In your browser on your local network, go to:
+  http://your-truenas-ip:5000
 
-Continuous Operation  
-Runs 24 7 using Docker with automatic restart
-
-AI Picker  
-Identify potential opportunities from selected stocks
-
-Logging and Monitoring  
-Track activity and system behavior over time
-
-Local First Architecture  
-Runs entirely on your system
+Find your TrueNAS IP in: TrueNAS UI → Network → Global Configuration
 
 ---
 
-## Quick Start
+## Using the Dashboard
 
-### Requirements
-
-Docker  
-Docker Compose  
-
----
-
-### Installation
-
-git clone https://github.com/YOUR_USERNAME/evelyn-ai-bot.git  
-cd evelyn-ai-bot  
-cp .env.example .env  
-docker compose up -d --build  
+1. Go to the Stocks tab — add/remove stocks and set $ per cycle
+2. Go to Schedule — choose daily/weekly/monthly and toggle dry run
+3. Go to Email Alerts — enter your Gmail app password
+4. Click Save on each page
+5. Go to Dashboard → click Start Bot
+6. Watch the Logs tab for live activity
 
 ---
 
-### Access the Dashboard
-
-http://localhost:5000
-
----
-
-## Usage
-
-Add the stocks you want to track  
-Use the AI Picker for insights  
-Enable portfolio report mode  
-Configure email alerts  
-Let Evelyn run and monitor results  
+## Accessing from anywhere on your network
+The UI runs on port 5000. Any device on your home network can access it:
+  http://192.168.1.x:5000   (replace with your TrueNAS IP)
 
 ---
 
-## Portfolio Reporting
+## 💻 Running on a Regular PC (No Docker)
 
-Evelyn generates reports including:
+Evelyn automatically detects whether it's running in Docker or on a regular PC and adjusts file paths accordingly. No configuration needed.
 
-Current price  
-Daily movement  
-Short term trend  
-AI verdict buy hold sell  
-Risk indicators  
-Strongest stock  
-Weakest stock  
-Portfolio summary  
+### Windows
 
----
+1. Install Python from https://python.org (check "Add to PATH" during install)
+2. Copy all Evelyn files to a folder e.g. `C:\Evelyn\`
+3. Double click `setup.py` to install dependencies (or run in Command Prompt)
+4. Double click `start.bat` to launch Evelyn
+5. Open browser to `http://localhost:5000`
 
-## Project Structure
+### Mac
 
-server.py  
-app_config.py  
-docker-compose.yml  
-Dockerfile  
-templates/  
-static/  
-.env.example  
-.gitignore  
+```bash
+cd ~/Evelyn
+python3 setup.py
+python3 server.py
+```
 
----
+### Linux / Ubuntu
 
-## Security
+```bash
+cd ~/evelyn
+python3 setup.py
+python3 server.py
+```
 
-Designed for local use  
-Do not expose to the public internet  
-Never commit real credentials  
-Use environment variables for sensitive data  
+Then open `http://localhost:5000` in your browser.
 
----
+### Keeping Evelyn running on a PC
 
-## Disclaimer
+**Windows** — Create a Scheduled Task to run `start.bat` at login.
 
-This project is for educational and research purposes only  
+**Mac** — Add to Login Items or create a launchd plist.
 
-It is not financial advice  
+**Linux** — Add to crontab:
+```bash
+@reboot cd ~/evelyn && python3 server.py &
+```
 
----
+### File structure on PC
 
-## License
+All settings are saved in the same folder as the scripts:
+```
+Evelyn/
+├── server.py
+├── robinbot.py
+├── advisor.py
+├── ai_picker.py
+├── smart_trader.py
+├── wallet.py
+├── monitors.py
+├── setup.py
+├── start.bat          ← Windows launcher
+├── start.sh           ← Mac/Linux launcher
+├── requirements.txt
+├── templates/
+│   └── index.html
+└── static/
+    └── evelyn_logo.png
+```
 
-MIT License
+Settings files are created automatically when you first run Evelyn:
+- `bot_config.json` — your stocks, schedule, email settings
+- `wallet.json` — your wallet balance and history
+- `monitors.json` — your price targets and monitor settings
+- `evelyn.log` — activity log
 
----
-
-## Author
-
-Evelyn AI Bot Project
