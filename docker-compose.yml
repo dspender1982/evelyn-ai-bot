@@ -8,17 +8,11 @@ services:
       TZ: America/Los_Angeles
       IN_DOCKER: '1'
       EVELYN_DATA_DIR: /app/data
-      # Optional: keep secrets out of bot_config.json by setting these in your app instead
-      # EVELYN_RH_USERNAME: your_robinhood_email
-      # EVELYN_RH_PASSWORD: your_robinhood_password
-      # EVELYN_EMAIL_SENDER: your_gmail@gmail.com
-      # EVELYN_EMAIL_PASSWORD: your_gmail_app_password
-      # EVELYN_EMAIL_RECIPIENT: your_alert_email@example.com
     ports:
       - '5000:5000'
     volumes:
-      - /mnt/data/robinbot/evelyn_v2/data:/app/data
-      - /mnt/data/robinbot/evelyn_v2/static:/app/static
+      - /mnt/data/data/robinbot/dca-webapp/data:/app/data
+      - /mnt/data/data/robinbot/dca-webapp/static:/app/static
     logging:
       driver: json-file
       options:
